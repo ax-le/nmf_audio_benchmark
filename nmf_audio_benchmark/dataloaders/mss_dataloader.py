@@ -98,6 +98,7 @@ class MusDBDataloader(BaseDataloader):
         self.mus = musdb.DB(root=datapath, subsets="test", download=False)
         self.indexes = range(len(self.mus))
         self.chunk_duration = chunk_duration
+        self.all_stems = ["drums", "bass", "other", "vocals"] # Adding the stems labels for the whole dataset. Easy for MusDB, may be tedious for other datasets.
 
     def __getitem__(self, index):
         """
@@ -115,8 +116,11 @@ class MusDBDataloader(BaseDataloader):
         else:
             raise NotImplementedError("Multichannel is not implemented yet") from None
 
+        # In MusDB, all annotations are ordered as [drums, bass, other, vocals]
+        stems_labels = self.all_stems # Labels are used to store the results according to each source.
+
         spectrogram = self.get_spectrogram(signal)
-        return track.name, spectrogram, stems
+        return track.name, spectrogram, stems, stems_labels
     
     def __len__(self):
         """
