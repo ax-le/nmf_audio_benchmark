@@ -12,6 +12,7 @@ import librosa
 import pathlib
 import shutil
 import numpy as np
+import os
 import warnings
 
 import base_audio.signal_to_spectrogram as signal_to_spectrogram
@@ -219,6 +220,13 @@ class RWCPopDataloader(BaseDataloader):
             rwcpop.download()
             
         self.all_tracks = rwcpop.load_tracks()
+
+        # Modifying the audio paths: now, they are named with the indexes of the songs
+        # Instead of having several folders indexing from 1 to 16 containing the files.
+        # This goes against the mirdata standards, but it is more convenient for me.
+        for a_track in self.all_tracks.values():
+            a_track.audio_path = f"{datapath}/audio/{a_track.track_id}.mp3"
+
         self.indexes = rwcpop.track_ids
 
         # self.dataset_name = "rwcpop"
@@ -260,20 +268,47 @@ class RWCPopDataloader(BaseDataloader):
         index = self.indexes.index(track_id)
         return self.__getitem__[index]
     
-    def format_dataset(self, path_audio_files):
+    def format_dataset_from_mirdata_standards(self, file_extension = "mp3"):
+        """      
+        I found very confusing the way mirdata handles the paths, because songs are not named with their indexes.
+        So I changed them to a unique list of files, ranging from 1 to 100.
+        You can follow mirdata standards if you want, but you will have to modify the dataloader accordingly (in particular the datapaths in the tracks).
+        Also, the cache may not work, please be careful.
+        If you want to follow my version but have the data as mirdata, you can use the following function to copy the audio files to the right location.
+        It is not extensively tested though, so don't delete the original files.
+
+        Parameters
+        ----------
+        file_extension : string
+            The extension of the audio files.
+            Default is "mp3".
         """
-        Format the dataset from the mirdata way of downloading information to the way of the dataloader.
-        """
-        # Copy audio files to the right location.
-        # Suppose that the audio files are all in the same folder
-        raise ValueError("It doesn't work. To debug when I obtain the files again.")
-        for track_num in range(len(self.all_tracks)):
-            track_idx = self.indexes[track_num]
-            song_file_name = self.all_tracks[track_idx].audio_path.split('/')[-1]
-            src = f"{path_audio_files}/{song_file_name}" # May change depending on your file structure
-            dest = self.all_tracks[track_idx].audio_path
-            pathlib.Path(dest).parent.absolute().mkdir(parents=True, exist_ok=True)
-            shutil.copy(src, dest)
+        def _filename_as_RWC(val):
+            if type(val) == int:
+                val = str(val)
+            return "RM-P" + val.zfill(3)
+        
+        offset_previous_folders = 0
+        for folder in sorted(os.listdir(f"{self.datapath}/audio")):
+            try:
+                count_files = 0
+                for file in sorted(os.listdir(f"{self.datapath}/audio/{folder}")):
+
+                    if file_extension not in file:
+                        continue
+                    new_number_file = int(file[:2]) + offset_previous_folders
+                    src = f"{self.datapath}/audio/{folder}/{file}"
+                    dest = f"{self.datapath}/audio/{_filename_as_RWC(new_number_file)}.{file_extension}"
+
+                    print(f"Copying {src} to {dest}")
+                    shutil.copy(src, dest)
+
+                    count_files += 1
+
+                offset_previous_folders += count_files
+            
+            except NotADirectoryError:
+                pass
 
 class SALAMIDataloader(BaseDataloader):
     """
