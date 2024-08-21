@@ -47,7 +47,6 @@ class SourceSeparation():
         snr, _ = evaluate_si_sdr(annotations, estimations, scaling=False)
         return si_sdr, snr, idx_argmax
 
-
 # %% Compute sources from NMF
 def estimate_sources(W, H, feature_object, nb_sources=4, phase_retrieval = "original_phase", phase=None):
     """
@@ -102,6 +101,44 @@ def cluster_sources(W, n_clusters=4):
     return kmeans.labels_
 
 # %% Evaluation functions
+def average_scores_sourcewise(scores, estimated_source_idxs, stems_labels):
+    """
+    Compute the average scores source-wise.
+    Suppose that you have already computed the SI-SDR (see below) for each estimated source.
+
+    Parameters
+    ----------
+    scores : list
+        The list of scores for each estimated source.
+    estimated_source_idxs : list
+        The index indicating which source is estimated.
+    stems_labels : list
+        The labels of the sources.
+
+    Returns
+    -------
+    dict_si_sdr : dict
+        The dictionary containing the average scores for each source.
+        Keys of the dictionary are the source labels.
+    """
+    # Initialize the final dictionary
+    dict_si_sdr = {}
+    
+    # Parse all estimated sources indexes
+    for i in range(len(estimated_source_idxs)):
+        # Get the label of the source
+        this_source_label = stems_labels[estimated_source_idxs[i]]
+
+        if this_source_label not in dict_si_sdr: # Initialize the list if the source was not previously found
+            dict_si_sdr[this_source_label] = []
+        dict_si_sdr[this_source_label].append(scores[i]) # Store the results
+    
+    # Average the results source-wise
+    for key in dict_si_sdr:
+        dict_si_sdr[key] = np.mean(dict_si_sdr[key], axis=0)
+    
+    return dict_si_sdr
+
 def evaluate_si_sdr(reference_signals, estimated_signals, scaling=True):
     """
     Evaluate the SI-SDR of the estimated signals compared to the reference signals.
