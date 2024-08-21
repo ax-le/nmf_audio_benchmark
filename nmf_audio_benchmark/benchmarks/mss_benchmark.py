@@ -95,56 +95,47 @@ def step(setting, experiment):
     # Instanciate the source separation object
     source_separation_object = mss.SourceSeparation(feature_object=dataset.feature_object, nb_sources = experiment.nb_sources, phase_retrieval="original_phase")
     
-    # Compute the source separation
-    all_si_sdr, all_snr, all_labels = compute_source_separation(dataset, nmf, source_separation_object)
+    # Compute the source separation. Scores are stored in a dictionary, sourcewise. The key "average" contains the average score for all sources.
+    dict_all_si_sdr = compute_source_separation(dataset, nmf, source_separation_object)
 
     # Save the results of this benchmark
     save_path = f"{experiment.path.output}/{setting.identifier()}"
-    np.save(f'{save_path}_si_sdrs.npy', np.array(all_si_sdr))
-    np.save(f'{save_path}_snrs.npy', np.array(all_snr))
-    np.save(f'{save_path}_source_labels.npy', np.array(all_labels))
+
+    for key in dict_all_si_sdr: # Save the results for each source and for the average
+        np.save(f'{save_path}_si_sdrs_{key}.npy', np.array(dict_all_si_sdr[key]))
 
 # Define the metrics which can be displayed using python <this_benchmark>.py -d
 experiment.set_metric(
-  name = 'si_sdrs',
-  percent=False,
-  higher_the_better= True,
-  significance = True,
+    name = 'si_sdrs_average',
+    percent=False,
+    higher_the_better= True,
 )
 
-experiment.set_metric(
-  name = 'std_si_sdrs',
-  output='si_sdrs',
-  func = np.std,
-)
-
-experiment.set_metric(
-  name = 'snrs',
-  percent=False,
-  higher_the_better= True,
-  precision = 10
-)
-
-experiment.set_metric(
-  name = 'std_snrs',
-  output='snrs',
-  func = np.std,
-)
+# Defines metrics accordiing to each sources available in the dataset.
+dataset = dataset_object(datapath=datapath, feature = "stft") # Generating a dataset to access the stems labels
+for stem_label in dataset.all_stems: # Parsing the sources
+    experiment.set_metric(
+        name = f'si_sdrs_{stem_label}',
+        func = np.nanmean, # Because sources which are never estiamted are set to NaN
+        percent=False,
+        higher_the_better= True,
+    )
 
 # Actually compute the source separation
 def compute_source_separation(dataset, nmf, source_separation_object):
     """
     Compute the source separation for all the songs in the dataset, using the nmf and the source separation object.
     """
-    # Empty lists for the scores
-    all_si_sdr = []
-    all_snr = []
-    all_labels = []
+    # Initialize the dictionary with NaN scores for each source.
+    dict_all_si_sdr = {}
+    dict_all_si_sdr["average"] = []
+    for stem_label in dataset.all_stems:
+        dict_all_si_sdr[stem_label] = [np.nan]
 
     # Iterate over all the songs in the dataset
     for idx_song in tqdm.tqdm(range(len(dataset))):
         # One song
-        track_id, (mag, phase), stems = dataset[idx_song]
+        track_id, (mag, phase), stems, stems_labels = dataset[idx_song]
 
         # Compute NMF
         W, H = nmf.run(data=mag, feature_object=dataset.feature_object)
@@ -154,12 +145,21 @@ def compute_source_separation(dataset, nmf, source_separation_object):
 
         # Compute the scores and store them
         si_sdr, snr, idx_argmax = source_separation_object.score(estimated_sources, stems)
-        
-        all_si_sdr.append(si_sdr)
-        all_snr.append(snr)
-        all_labels.append(idx_argmax)
-    
-    return all_si_sdr, all_snr, all_labels
+
+        # Store the average SI-SDR for all estimated sources
+        dict_all_si_sdr["average"].append(np.mean(si_sdr))
+
+        # Store the SI-SDR source-wise
+        result_sourcewise_si_sdr = mss.average_scores_sourcewise(si_sdr, idx_argmax, stems_labels)
+
+        # Update the dictionary, with source-wise scores.
+        for key in result_sourcewise_si_sdr:
+            if dict_all_si_sdr[key][0] is np.nan: # First time that this source is estimated
+                dict_all_si_sdr[key][0] = result_sourcewise_si_sdr[key] # Replace the None value by the first result
+            else:
+                dict_all_si_sdr[key].append(result_sourcewise_si_sdr[key]) # Append the score to the list
+
+    return dict_all_si_sdr
 
 if __name__ == "__main__":
     # Invoke the command line management of the doce package
