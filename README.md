@@ -13,7 +13,7 @@ This toolbox was designed following the fact that new low-rank factorization mod
 
 In particular, this toolbox is primarily designed for people developing new low-rank factorization models. Hence, it should be easy to add new NMF algorithms.
 
-**This toolbox is still under active developments. Any help or comment is welcomed!**
+**This toolbox is still under active development. Any help or comment is welcomed!**
 
 ## Features
 
@@ -40,13 +40,13 @@ The toolbox is organized into several modules:
 - algorithms: This module includes the implementations of the NMF algorithms. Ideally, it provides a standardized interface for adding new NMF models. A template file is present in the folder, to help you add a new NMF algorithm.
 
 - tasks: This module defines different tasks for which NMF algorithms can be benchmarked. For now, the tasks are:
-    1. **Music Source Separation**: Separating the signals from the differents sources in the audio.
-    1. **Music Transcription**: Transcribe a spectrogam into notes and their activations. Focus on the piano for now. Note: as for now, this task is done pretty naïvely, and could be enhanced.
+    1. **Music Source Separation**: Separating the signals from the different sources in the audio.
+    1. **Music Transcription**: Transcribe a spectrogram into notes and their activations. Focus on the piano for now. Note: as for now, this task is done pretty naïvely, and could be enhanced.
     1. **Music Structure Analysis**: Estimates the structure of a song.
 
 Example notebooks are available for each task, to help you get into the code.
 
-- dataloaders: This module contains utilities for loading and pre-processing audio datasets. It includes functions to handle various audio formats and prepare data for NMF algorithms. Dataloaders are designed for the different tasks. Available dataloders are:
+- dataloaders: This module contains utilities for loading and pre-processing audio datasets. It includes functions to handle various audio formats and prepare data for NMF algorithms. Dataloaders are designed following the different tasks. Available dataloaders are:
     1. **Music Source Separation**: MusDB18.
     1. **Music Transcription**: MAPS.
     1. **Music Structure Analysis**: RWC Pop, SALAMI and The Beatles.
@@ -57,33 +57,34 @@ Example notebooks are available for each task, to help you get into the code.
 The benchmark uses the doce package for the management of the experiments.
 See the documentation for more details about the doce package: https://doce.readthedocs.io/
 
-In a nutshell, benchmarks are handled using the command-ilne interface.
+In a nutshell, benchmarks are handled using the command-line interface.
 - Run a benchmark using `python <benchmark.py> -c`
 - Evaluate the metrics using `python <benchmark.py> -d`
 - Control the plans (different conditions of experiments) using `python <benchmark.py> -s <plan_name>`
 - Tag experiments using `python <benchmark.py> -t <tag_name>`
 
-The experiements outputs are stored in a folder named 'experiments_outputs' and stored at the same tree level than the one where you run the benchmark.
-TODO: add a fixed tree structure for experimentsoutputs in the future.
+The experiment outputs are stored in a folder named 'experiments_outputs' and stored at the same tree level than the one where you run the benchmark.
 
-# Contact
+TODO: add a fixed tree structure for experiment outputs in the future.
+
+# Contact
 Axel Marmoret - axel.marmoret@imt-atlantique.fr
 
 # Future work
 ## NMF developments
 For now, only the unconstrained NMF is developed. Sparse and Min-vol NMF should soon follow.
 
-Feel free to add your own models! This is the main reason of this toolbox.
+Feel free to add your own models! This is the main reason for this toolbox.
 
 In addition, State-of-the-Art models (such as [1]) should be added to the toolbox.
 
 ## Tasks
-The current tasks could be enhanced. In particular the Transcription task, which is done in a naïve way now.
+The current tasks could be enhanced. In particular, the Transcription task, which is done in a naïve way now.
 
 New tasks could also be added, for instance in general audio processing (speech) or bioacoustics (bioacoustics source separation or sound event detection).
 
 ## Tensor models
-Tensor models constitute a very active litterature, which should be tackled in the current toolbox. In particular, tensor model for audio processing already exist (for instance [2, 3]).
+Tensor models constitute a very active literature, which should be tackled in the current toolbox. In particular, tensor models for audio processing already exist (for instance [2, 3]).
 
 ## GPU-intended NMF
 For now, NMF models run on CPU. GPU are known to be very efficient for matrix computation. Hence, adapting the code for GPU computation (for instance using Tensorly, which enables compatibility with PyTorch) should be a major advantage and time gain.
