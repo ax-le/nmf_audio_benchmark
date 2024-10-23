@@ -4,27 +4,28 @@ This module contains the dataloaders for the main datasets in MSA: SALAMI, RWCPO
 It loads the data, but also computes the barwise TF matrix and the bars from the audio files.
 When the barwise TF matrix and bars are computed, they are saved in a cache folder to avoid recomputing them.
 """
+import librosa
 
 import mirdata
 import mirdata.download_utils
 
-import librosa
 import pathlib
 import shutil
 import numpy as np
 import os
 import warnings
 
-import base_audio.signal_to_spectrogram as signal_to_spectrogram
+# import base_audio.signal_to_spectrogram as signal_to_spectrogram
+from nmf_audio_benchmark.dataloaders.base_dataloader import *
 
 import as_seg
 
 eps = 1e-10
 
-class BaseDataloader():
+class MSABaseDataloader(BaseDataloader):
     def __init__(self, feature, cache_path = None, sr=44100, n_fft = 2048, hop_length = 512, subdivision = 96, verbose = False):
         """
-        Constructor of the BaseDataloader class.
+        Constructor of the MSABaseDataloader class. Inherits from the BaseDataloader class.
 
         Parameters
         ----------
@@ -48,31 +49,10 @@ class BaseDataloader():
             If True, print some information about the cache.
             The default is False
         """
-        self.cache_path = cache_path
-        self.verbose = verbose
-
-        self.feature_object = signal_to_spectrogram.FeatureObject(sr, feature, hop_length=hop_length, n_fft = n_fft)
+        super().__init__(feature=feature, cache_path=cache_path, sr=sr, n_fft=n_fft, hop_length = hop_length, verbose = verbose, multichannel = False) # Multichannel is not handled for now in MSA.
 
         # For barwise or beatwise processing
         self.subdivision = subdivision
-
-    def __getitem__(self, index):
-        """
-        Return the data of the index-th track.
-        """
-        raise NotImplementedError("This method should be implemented in the child class") from None
-
-    def __len__(self):
-        """
-        Return the number of tracks in the dataset.
-        """
-        raise NotImplementedError("This method should be implemented in the child class") from None
-
-    def get_spectrogram(self, signal): # The spectrogram is not saved in the cache because it is too large in general
-        """
-        Returns the spectrogram, from the signal of a song.
-        """
-        return self.feature_object.get_spectrogram(signal)
     
     def get_bars(self, audio_path, index = None):
         """
@@ -185,7 +165,7 @@ class BaseDataloader():
         # May be useful, if ever.
         return as_seg.data_manipulation.segments_from_bar_to_time(segments, bars)
 
-class RWCPopDataloader(BaseDataloader):
+class RWCPopDataloader(MSABaseDataloader):
     """
     Dataloader for the RWC Pop dataset.
     """
@@ -255,19 +235,6 @@ class RWCPopDataloader(BaseDataloader):
         # Return the the bars, the barwise TF matrix and the annotations
         return track_id, bars, barwise_tf_matrix, annotations_intervals
     
-    def __len__(self):
-        """
-        Return the number of tracks in the dataset.
-        """
-        return len(self.indexes)
-    
-    def get_track_of_id(self, track_id):
-        """
-        Return the data of the track with the given track_id.
-        """
-        index = self.indexes.index(track_id)
-        return self.__getitem__[index]
-    
     def format_dataset_from_mirdata_standards(self, file_extension = "mp3"):
         """      
         I found very confusing the way mirdata handles the paths, because songs are not named with their indexes.
@@ -310,7 +277,7 @@ class RWCPopDataloader(BaseDataloader):
             except NotADirectoryError:
                 pass
 
-class SALAMIDataloader(BaseDataloader):
+class SALAMIDataloader(MSABaseDataloader):
     """
     Dataloader for the SALAMI dataset.
     """
@@ -381,27 +348,7 @@ class SALAMIDataloader(BaseDataloader):
             print(f'{track_id} not found.')
             return track_id, None, None, None
             # raise FileNotFoundError(f"Song {track_id} not found, normal ?") from None
-    
-    def __len__(self):
-        """
-        Return the number of tracks in the dataset, and in particular the number of tracks in the subset.
-        """
-        # To handle the fact that indexes are updated with the subset
-        return len(self.indexes)
-
-    def get_track_of_id(self, track_id):
-        """
-        Return the data of the track with the given track_id.
-        """
-        try:
-            index = self.indexes.index(track_id)
-        except ValueError:
-            try:
-                index = self.indexes.index(str(track_id))
-            except ValueError:
-                raise ValueError(f"Track {track_id} not found in the dataset") from None
-        return self.__getitem__(index)
-
+            
     def get_annotations(self, track):
         """
         Return the annotations of the track, in the form of a dict.
@@ -554,7 +501,7 @@ class SALAMIDataloader(BaseDataloader):
         #     pathlib.Path(dest).parent.absolute().mkdir(parents=True, exist_ok=True)
         #     shutil.copy(src, dest)
     
-class BeatlesDataloader(BaseDataloader):
+class BeatlesDataloader(MSABaseDataloader):
     """
     Dataloader for the Beatles dataset.
     """
@@ -604,31 +551,20 @@ class BeatlesDataloader(BaseDataloader):
         """
         Return the number of tracks in the dataset.
         """
-        return len(self.all_tracks)
-    
-    def get_track_of_id(self, track_id):
-        """
-        Return the data of the track with the given track_id.
-        """
-        try:
-            index = self.indexes.index(track_id)
-        except ValueError:
-            try:
-                index = self.indexes.index(str(track_id))
-            except ValueError:
-                raise ValueError(f"Track {track_id} not found in the dataset") from None
-        return self.__getitem__(index)
+        return len(self.all_tracks) # Why not just len(indexes, an in the base class?)
 
 if __name__ == "__main__":
-    # rwcpop = RWCPopDataloader('/home/a23marmo/datasets/rwcpop', feature = "mel", cache_path = "/home/a23marmo/Bureau/data_persisted/rwcpop")
-    # # rwcpop.format_dataset('/home/a23marmo/Bureau/Audio samples/rwcpop/Entire RWC')
-    # for spectrogram, bars, barwise_tf_matrix, track_id, annotations in rwcpop:
-    #     print(spectrogram.shape, track_id)
+    rwcpop = RWCPopDataloader('/home/a23marmo/datasets/rwcpop', feature = "mel", cache_path = "/home/a23marmo/datasets/rwcpop/cache")
+    # rwcpop.format_dataset('/home/a23marmo/Bureau/Audio samples/rwcpop/Entire RWC')
+    
+    print(len(rwcpop))
+    for track_id, bars, barwise_tf_matrix, annotations in rwcpop:
+        print(track_id)
 
-    salami = SALAMIDataloader('/home/a23marmo/datasets/salami', feature = "mel", cache_path = "/home/a23marmo/Bureau/data_persisted/salami", subset = "train")
+    # salami = SALAMIDataloader('/home/a23marmo/datasets/salami', feature = "mel", cache_path = '/home/a23marmo/datasets/salami/cache', subset = "train")
 
-    for spectrogram, bars, barwise_tf_matrix, track_id, annotations in salami:
-        try:
-            print(track_id)
-        except FileNotFoundError:
-            print(f'{track_id} not found.')
+    # for track_id, bars, barwise_tf_matrix, dict_annotations in salami:
+    #     try:
+    #         print(track_id)
+    #     except FileNotFoundError:
+    #         print(f'{track_id} not found.')

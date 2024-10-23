@@ -4,23 +4,23 @@ This module contains the dataloaders for the MAPS dataset. Can be extended to ot
 It loads the spectrogram and the annotations for each song in the dataset.
 """
 
-import mirdata
+import mirdata # Might be useful
 import librosa
 import pathlib
 import shutil
-import numpy as np
 import os
 import glob
 import warnings
 
-import base_audio.signal_to_spectrogram as signal_to_spectrogram
+# import base_audio.signal_to_spectrogram as signal_to_spectrogram
+from nmf_audio_benchmark.dataloaders.base_dataloader import *
 
 eps = 1e-10
 
-class BaseDataloader():
+class TranscriptionBaseDataloader(BaseDataloader):
     def __init__(self, feature, cache_path = None, sr=44100, n_fft = 2048, hop_length = 512, verbose = False, multichannel = False):
         """
-        Constructor of the BaseDataloader class.
+        Constructor of TranscriptionBaseDataloader class. Inherits from the BaseDataloader class.
 
         Parameters
         ----------
@@ -44,33 +44,11 @@ class BaseDataloader():
             If True, the dataloader will return the multichannel audio.
             The default is False.
         """
-        self.cache_path = cache_path
-        self.verbose = verbose
-
-        self.feature_object = signal_to_spectrogram.FeatureObject(sr, feature, hop_length=hop_length, n_fft = n_fft)
-
-        self.multichannel = multichannel
-
-    def __getitem__(self, index):
-        """
-        Return the data of the index-th track.
-        """
-        raise NotImplementedError("This method should be implemented in the child class") from None
-
-    def __len__(self):
-        """
-        Return the number of tracks in the dataset.
-        """
-        raise NotImplementedError("This method should be implemented in the child class") from None
-
-    def get_spectrogram(self, signal): # The spectrogram is not saved in the cache because it is too large in general
-        """
-        Returns the spectrogram, from the signal of a song.
-        """
-        return self.feature_object.get_spectrogram(signal)
+        super().__init__(feature=feature, cache_path=cache_path, sr=sr, n_fft=n_fft, hop_length = hop_length, verbose = verbose, multichannel = multichannel)
+        assert not multichannel # Multichannel is not handled yet.
 
 
-class MAPSDataloader(BaseDataloader):
+class MAPSDataloader(TranscriptionBaseDataloader):
     
     name = "MAPS"
 
@@ -84,7 +62,7 @@ class MAPSDataloader(BaseDataloader):
         """
         super().__init__(feature = feature, cache_path = cache_path, sr=sr, n_fft=n_fft, hop_length=hop_length, verbose=verbose, multichannel=multichannel)
         self.datapath = datapath
-        self.subset_path = f"{datapath}/{subfolder}/MUS"
+        self.subset_path = f"{datapath}/{subfolder}/MUS" # Listing all files from the "MUS" subsubfolder, i.e. all musics
         self.song_path = glob.glob(rf"{self.subset_path}/*.wav")
         if self.song_path == []:
             raise FileNotFoundError(f"No .wav files found in {self.subset_path}. The path is probably incorect.")
@@ -112,12 +90,6 @@ class MAPSDataloader(BaseDataloader):
 
         spectrogram = self.get_spectrogram(signal)
         return song_idx, spectrogram, annotations
-    
-    def __len__(self):
-        """
-        Return the number of tracks in the dataset.
-        """
-        return len(self.indexes)
     
     def format_dataset(self, delete_original=False):
         """
@@ -173,3 +145,7 @@ def load_reference_annotations(ref_path, time_limit = None):
                 truth_array.append(line_to_array)
 
     return truth_array
+
+if __name__ == "__main__":
+    musdb_18 = MAPSDataloader('/home/a23marmo/datasets/MAPS', feature = "mel", subfolder = "AkPnBcht", cache_path = None)
+    print(len(musdb_18))

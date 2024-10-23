@@ -26,9 +26,9 @@ References:
 [2] Marmoret, A., Bertin, N., & Cohen, J. (2019). Multi-Channel Automatic Music Transcription Using Tensor Algebra. arXiv preprint arXiv:2107.11250.
 """
 # Define the dataloaders
-import nmf_audio_benchmark.dataloaders.transcription_dataloader as tr_dl
+import nmf_audio_benchmark.dataloaders.music.transcription_dataloader as tr_dl
 # Define the task
-import nmf_audio_benchmark.tasks.transcription as tr
+import nmf_audio_benchmark.tasks.music.transcription as tr
 # Define the algorithm
 import nmf_audio_benchmark.algorithms.nn_fac_algos as nn_fac_algos
 

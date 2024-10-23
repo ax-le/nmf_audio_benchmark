@@ -18,6 +18,7 @@ References:
 [1] Smaragdis, P., & Brown, J. C. (2003, October). Non-negative matrix factorization for polyphonic music transcription. In 2003 IEEE Workshop on Applications of Signal Processing to Audio and Acoustics (IEEE Cat. No. 03TH8684) (pp. 177-180). IEEE.
 [2] Marmoret, A., Bertin, N., & Cohen, J. (2019). Multi-Channel Automatic Music Transcription Using Tensor Algebra. arXiv preprint arXiv:2107.11250.
 """
+from nmf_audio_benchmark.tasks.base_task import *
 
 import math
 import numpy as np
@@ -27,7 +28,7 @@ import mir_eval
 
 import nmf_audio_benchmark.utils.errors as err
 
-class Transcription():
+class Transcription(BaseTask):
     """
     Class for the Transcription algorithm. Inspired from the scikit-learn API: https://scikit-learn.org/stable/auto_examples/developing_estimators/sklearn_is_fitted.html, Author: Kushan <kushansharma1@gmail.com>, License: BSD 3 clause
     """
@@ -90,7 +91,7 @@ class Transcription():
     
     def update_params(self, param_grid):
         """
-        Update the parameters of the model.
+        Update the parameters of the model (e.g. threshold and smoothing window)
         """
         for key, value in param_grid.items():
             setattr(self, key, value)

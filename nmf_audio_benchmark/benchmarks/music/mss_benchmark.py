@@ -25,9 +25,9 @@ References:
 [1] Vincent, E., Virtanen, T., & Gannot, S. (Eds.). (2018). Audio source separation and speech enhancement. John Wiley & Sons.
 """
 # Define the dataloaders
-import nmf_audio_benchmark.dataloaders.mss_dataloader as mss_dl
+import nmf_audio_benchmark.dataloaders.music.mss_dataloader as mss_dl
 # Define the task
-import nmf_audio_benchmark.tasks.mss as mss
+import nmf_audio_benchmark.tasks.music.mss as mss
 # Define the algorithm
 import nmf_audio_benchmark.algorithms.nn_fac_algos as nn_fac_algos
 
@@ -93,7 +93,7 @@ def step(setting, experiment):
                                   normalize=[True, False])
 
     # Instanciate the source separation object
-    source_separation_object = mss.SourceSeparation(feature_object=dataset.feature_object, nb_sources = experiment.nb_sources, phase_retrieval="original_phase")
+    source_separation_object = mss.MusicSourceSeparation(feature_object=dataset.feature_object, nb_sources = experiment.nb_sources, phase_retrieval="original_phase")
     
     # Compute the source separation. Scores are stored in a dictionary, sourcewise. The key "average" contains the average score for all sources.
     dict_all_si_sdr = compute_source_separation(dataset, nmf, source_separation_object)

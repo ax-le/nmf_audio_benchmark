@@ -11,11 +11,14 @@ References:
 [2] Marmoret, A. (2022). Unsupervised Machine Learning Paradigms for the Representation of Music Similarity and Structure (Doctoral dissertation, Université Rennes 1).
 [3] Nieto, O., & Bello, J. P. (2015). Msaf: Music structure analytis framework. In Proceedings of 16th International Society for Music Information Retrieval Conference (ISMIR 2015).
 """
+
+from nmf_audio_benchmark.tasks.base_task import *
+
 import as_seg.CBM_algorithm as CBM_algorithm
 import as_seg.autosimilarity_computation as as_comp
 import as_seg.data_manipulation as dm
 
-class CBMEstimator():
+class CBMEstimator(BaseTask):
     """
     Class for the CBM algorithm [1]. Inspired from the scikit-learn API: https://scikit-learn.org/stable/auto_examples/developing_estimators/sklearn_is_fitted.html, Author: Kushan <kushansharma1@gmail.com>, License: BSD 3 clause
     """
@@ -82,3 +85,9 @@ class CBMEstimator():
         close_tolerance = dm.compute_score_of_segmentation(annotations, predictions, window_length=0.5, trim=trim)
         large_tolerance = dm.compute_score_of_segmentation(annotations, predictions, window_length=3, trim=trim)
         return close_tolerance, large_tolerance
+
+
+if __name__ == "__main__":
+    import numpy as np
+    dumb_cbm = CBMEstimator()
+    print(dumb_cbm.score(predictions=np.array([[0, 1],[1,4], [4,6]]), annotations=np.array([[0, 2],[2,4], [4,6]])))

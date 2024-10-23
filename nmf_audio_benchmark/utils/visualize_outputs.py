@@ -6,7 +6,7 @@ Should be made better in neat future.
 import matplotlib.pyplot as plt
 import numpy as np
 import doce
-import nmf_audio_benchmark.benchmarks.msa_benchmark as msa_benchmark
+import nmf_audio_benchmark.benchmarks.music.msa_benchmark as msa_benchmark
 
 selector = {"rank":[10,20],"beta":[2,1,0]}
     

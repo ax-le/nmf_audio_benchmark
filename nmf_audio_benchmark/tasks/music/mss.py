@@ -17,6 +17,7 @@ References:
 [3] Le Roux, J., Wisdom, S., Erdogan, H., & Hershey, J. R.(2019, May). SDR-half-baked or well done?. In ICASSP 2019-2019 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP) (pp. 626-630). IEEE.
 [4] Vincent, E., Gribonval, R., & Févotte, C. (2006). Performance measurement in blind audio source separation. IEEE transactions on audio, speech, and language processing, 14(4), 1462-1469.
 """
+from nmf_audio_benchmark.tasks.base_task import *
 
 import numpy as np
 import mir_eval
@@ -27,7 +28,7 @@ import base_audio.spectrogram_to_signal as spectrogram_to_signal
 import math
 import warnings
 
-class SourceSeparation():
+class MusicSourceSeparation(BaseTask):
     """
     Class to compute source separation, based on NMF.
     Inspired from the scikit-learn API: https://scikit-learn.org/stable/auto_examples/developing_estimators/sklearn_is_fitted.html, Author: Kushan <kushansharma1@gmail.com>, License: BSD 3 clause
@@ -78,6 +79,13 @@ def estimate_spectrograms(W, H, nb_sources=4):
     for idx_factor, current_source_idx in enumerate(source_labels):
         all_specs[current_source_idx] += np.outer(W[:,idx_factor], H[idx_factor])
 
+    return all_specs
+
+def estimate_spectrograms_no_clustering(W, H):
+    """
+    Compute the spectrograms of the sources from the W and H matrices, considering that each column of W is a different source.
+    """
+    all_specs = np.array([np.outer(W[:,idx_factor], H[idx_factor]) for idx_factor in range(W.shape[1])])
     return all_specs
 
 def cluster_sources(W, n_clusters=4):

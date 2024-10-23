@@ -18,11 +18,11 @@ import shutil
 import numpy as np
 import warnings
 
-import base_audio.signal_to_spectrogram as signal_to_spectrogram
+from nmf_audio_benchmark.dataloaders.base_dataloader import *
 
 eps = 1e-10
 
-class TemplateDataloader():
+class TemplateDataloader(BaseDataloader):
     def __init__(self, feature, cache_path = None, sr=44100, n_fft = 2048, hop_length = 512, verbose = False, multichannel = False):
         """
         Constructor of the BaseDataloader class.
@@ -49,20 +49,23 @@ class TemplateDataloader():
             If True, the dataloader will return the multichannel audio.
             The default is False.
         """
-        self.cache_path = cache_path
-        self.verbose = verbose
+        super().__init__(feature=feature, cache_path = cache_path, sr=sr, n_fft = n_fft, hop_length = hop_length, verbose = verbose, multichannel = multichannel)
 
-        self.feature_object = signal_to_spectrogram.FeatureObject(sr, feature, hop_length=hop_length, n_fft = n_fft)
+        # Should be defined somehow, as the list of songs.
+        # It is defined as a standard.
+        # If you really need to *not* define a list of indexes, don't forget to modify the len function.
+        self.indexes = TODO 
 
     def __getitem__(self, index):
         """
         Return the data of the index-th track.
         """
         raise NotImplementedError("This method should be implemented.") from None
-        return track_id, spectrogram, annotations
+    
+        return track_id, spectrogram, annotations # The minimal standard set of parametes returned by the function.
 
-    def __len__(self):
+    def __len__(self): # This is already the default function, in the mother class. Hence, it should be useful to define it only if you don't use indexes, which is non-standard.
         """
         Return the number of tracks in the dataset.
         """
-        raise NotImplementedError("This method should be implemented.") from None
+        return len(self.indexes) # By default, returns the number of indexes. Hence, the indexes have to be knwon somehow.

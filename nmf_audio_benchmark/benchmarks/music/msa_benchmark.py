@@ -28,9 +28,9 @@ References:
 [3] Marmoret, A., Cohen, J. E., & Bimbot, F. (2023). Barwise Music Structure Analysis with the Correlation Block-Matching Segmentation Algorithm. Transactions of the International Society for Music Information Retrieval (TISMIR), 6(1), 167-185.
 """
 # Define the dataloaders
-import nmf_audio_benchmark.dataloaders.msa_dataloader as msa_dl
+import nmf_audio_benchmark.dataloaders.music.msa_dataloader as msa_dl
 # Define the task
-import nmf_audio_benchmark.tasks.msa as msa
+import nmf_audio_benchmark.tasks.music.msa as msa
 # Define the algorithm
 import nmf_audio_benchmark.algorithms.nn_fac_algos as nn_fac_algos
 

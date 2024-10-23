@@ -11,14 +11,15 @@ import shutil
 import numpy as np
 import warnings
 
-import base_audio.signal_to_spectrogram as signal_to_spectrogram
+# import base_audio.signal_to_spectrogram as signal_to_spectrogram
+from nmf_audio_benchmark.dataloaders.base_dataloader import *
 
 eps = 1e-10
 
-class BaseDataloader():
+class MSSBaseDataloader(BaseDataloader):
     def __init__(self, feature, cache_path = None, sr=44100, n_fft = 2048, hop_length = 512, verbose = False, multichannel = False):
         """
-        Constructor of the BaseDataloader class.
+        Constructor of the MSSBaseDataloader class. Inherits from the BaseDataloader class.
 
         Parameters
         ----------
@@ -42,32 +43,14 @@ class BaseDataloader():
             If True, the dataloader will return the multichannel audio.
             The default is False.
         """
-        self.cache_path = cache_path
-        self.verbose = verbose
+        super().__init__(feature=feature, cache_path=cache_path, sr=sr, n_fft=n_fft, hop_length = hop_length, verbose = verbose, multichannel = multichannel)
 
-        self.feature_object = signal_to_spectrogram.FeatureObject(sr, feature, hop_length=hop_length, n_fft = n_fft)
+        if self.multichannel:
+            raise NotImplementedError("Multichannel is not implemented yet") from None
 
-        self.multichannel = multichannel
+class MusDBDataloader(MSSBaseDataloader):
 
-    def __getitem__(self, index):
-        """
-        Return the data of the index-th track.
-        """
-        raise NotImplementedError("This method should be implemented in the child class") from None
-
-    def __len__(self):
-        """
-        Return the number of tracks in the dataset.
-        """
-        raise NotImplementedError("This method should be implemented in the child class") from None
-
-    def get_spectrogram(self, signal): # The spectrogram is not saved in the cache because it is too large in general
-        """
-        Returns the spectrogram, from the signal of a song.
-        """
-        return self.feature_object.get_spectrogram(signal)
-
-class MusDBDataloader(BaseDataloader):
+    # You actually need to install the musdb package, to handle musdb files.
     
     name = "musdb"
 
@@ -122,8 +105,6 @@ class MusDBDataloader(BaseDataloader):
         spectrogram = self.get_spectrogram(signal)
         return track.name, spectrogram, stems, stems_labels
     
-    def __len__(self):
-        """
-        Return the number of tracks in the dataset.
-        """
-        return len(self.mus)
+if __name__ == "__main__":
+    musdb_18 = MusDBDataloader('/home/a23marmo/datasets/musdb18', feature = "mel", cache_path = None)
+    print(len(musdb_18))
