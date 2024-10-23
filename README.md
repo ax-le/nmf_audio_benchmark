@@ -24,6 +24,8 @@ In particular, this toolbox is primarily designed for people developing new low-
 
 ## Installation
 
+The code waas developed using Python 3.11, and numpy version 1.23.5.. As of now, it will probably **not** work with Python 3.12 and numpy versions higher than 1.24, sorry for the inconvenience! This should be fixed in near future.
+
 To install the toolbox, clone the repository and install the required dependencies:
 
 ```bash
