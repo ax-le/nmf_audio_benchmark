@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="nmf_audio_benchmark",
-    version="0.1.0",
+    version="0.1.1",
     author="Marmoret Axel",
     author_email="axel.marmoret@imt-atlantique.fr",
     description="Benchmark for NMF methods on audio applications.",
@@ -31,7 +31,7 @@ setuptools.setup(
         'matplotlib',
         'mir_eval',
         'mirdata',
-        'nn_fa >= 0.3.2',
+        'nn_fac>= 0.3.2',
         'numpy',
         'scikit_learn',
         'tqdm',
