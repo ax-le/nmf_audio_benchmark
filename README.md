@@ -69,6 +69,14 @@ The experiment outputs are stored in a folder named 'experiments_outputs' and st
 
 TODO: add a fixed tree structure for experiment outputs in the future.
 
+# Related Toolboxes
+## NMF audio toolbox
+It appears that there already exist a very similar toolbox, called [NMF Toolbox](https://www.audiolabs-erlangen.de/resources/MIR/NMFtoolbox/#Python) [4]. I was not aware of the existence of this toolbox when I started this work, hence it may reinvent the wheel and do a lot of thing that this toolbox does. Sorry about that. In near future, it may be valuable to add the content of NMF Toolbox into the benchmark (this would also require authorizations from the authors and appropriate citation).
+
+## NMF
+For now, this work uses the [nn_fac](https://github.com/ax-le/nn-fac) toolbox [5] for NMF computation.
+
+
 # Contact
 Axel Marmoret - axel.marmoret@imt-atlantique.fr
 
@@ -98,3 +106,7 @@ For now, NMF models run on CPU. GPU are known to be very efficient for matrix co
 [2] Ozerov, A., & Févotte, C. (2009). Multichannel nonnegative matrix factorization in convolutive mixtures for audio source separation. IEEE transactions on audio, speech, and language processing, 18(3), 550-563.
 
 [3] Marmoret, A., Bertin, N., & Cohen, J. (2019). Multi-Channel Automatic Music Transcription Using Tensor Algebra. arXiv preprint arXiv:2107.11250.
+
+[4] López-Serrano, Patricio, et al. "NMF toolbox: Music processing applications of nonnegative matrix factorization." Proceedings of the International Conference on Digital Audio Effects DAFx. Vol. 19. 2019.
+
+[5] Marmoret, Axel, and Jérémy E. Cohen. "nn_fac: Nonnegative Factorization techniques toolbox." (2020).
