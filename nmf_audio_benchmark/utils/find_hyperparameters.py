@@ -1,7 +1,7 @@
 """
 Helper to find the best hyperparameters.
 Only the cross validation scheme is developed for now.
-A second option could be hyperparameter optimization, using hyperopt for example, but it may be considered as "cheating".
+A second option could be hyperparameter optimization, using optuna (for instance) on a learning dataset. This is TODO.
 """
 
 import itertools

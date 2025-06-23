@@ -4,14 +4,14 @@ This is a repository aimed at facilitating the benchmarking of NMF-based techniq
 
 ## Overview
 
-This toolbox was designed following the fact that new low-rank factorization models are still being developed (in particular under new constraints or objective functions), but testing them under real conditions with audio data is not an easy task. In that spirit, this toolbox was primarily created to:
+This toolbox was developed in response to the ongoing development of new low-rank factorization models (in particular under new constraints or objective functions), but testing them under real conditions with audio data is not an easy task. In that spirit, this toolbox was primarily created to:
 
 - Provide a standardized framework for evaluating NMF-based audio processing techniques.
 - Offer a collection of audio datasets and pre-processing tools.
 - Include a set of baseline NMF algorithms for comparison.
 - Enable easy integration of new NMF models for benchmarking.
 
-In particular, this toolbox is primarily designed for people developing new low-rank factorization models. Hence, it should be easy to add new NMF algorithms.
+This toolbox is mainly intended for researchers developing new low-rank factorization models. Hence, it should be easy to add new NMF algorithms (at least, this is intended; hence, don't hesitate to make comments).
 
 **This toolbox is still under active development. Any help or comment is welcomed!**
 
@@ -24,7 +24,7 @@ In particular, this toolbox is primarily designed for people developing new low-
 
 ## Installation
 
-The code waas developed using Python 3.11, and numpy version 1.23.5.. As of now, it will probably **not** work with Python 3.12 and numpy versions higher than 1.24, sorry for the inconvenience! This should be fixed in near future.
+The code was developed using Python 3.12, and numpy version 1.26.4. Using numpy v2.* may cause errors when installing some dependencies, sorry for the inconvenience.
 
 To install the toolbox, clone the repository and install the required dependencies:
 
@@ -34,48 +34,27 @@ cd nmf-audio-benchmark
 pip install -r requirements.txt
 ```
 
-Additional requirements can be installed following the specific task.
-
+Additional requirements can be installed depending on the specific task (e.g., `requirements_msa.txt` or `requirements_mss.txt`).
 ## Organization of the Toolbox
 The toolbox is organized into several modules:
 
 - algorithms: This module includes the implementations of the NMF algorithms. Ideally, it provides a standardized interface for adding new NMF models. A template file is present in the folder, to help you add a new NMF algorithm.
 
 - tasks: This module defines different tasks for which NMF algorithms can be benchmarked. For now, the tasks are:
-    1. **Music Source Separation**: Separating the signals from the different sources in the audio.
-    1. **Music Transcription**: Transcribe a spectrogram into notes and their activations. Focus on the piano for now. Note: as for now, this task is done pretty naïvely, and could be enhanced.
-    1. **Music Structure Analysis**: Estimates the structure of a song.
+    1. **Music Source Separation**: Separating the signals from the different sources in the audio [VVG18].
+    1. **Music Transcription**: Transcribe a spectrogram into notes and their activations [Ben+18]. Currently, this task focuses on the piano and is implemented in a rather naïve way - it could be significantly improved. Future work should tackle this aspect.
+    1. **Music Structure Analysis**: Estimates the structure of a song [Nie+20].
 
 Example notebooks are available for each task, to help you get into the code.
 
-- dataloaders: This module contains utilities for loading and pre-processing audio datasets. It includes functions to handle various audio formats and prepare data for NMF algorithms. Dataloaders are designed following the different tasks. Available dataloaders are:
-    1. **Music Source Separation**: MusDB18.
-    1. **Music Transcription**: MAPS.
-    1. **Music Structure Analysis**: RWC Pop, SALAMI and The Beatles.
+- dataloaders: This module contains utilities for loading and pre-processing audio datasets. It includes functions to handle various audio formats and prepare data for NMF algorithms. Dataloaders are organized according to the different tasks. Available dataloaders are:
+    1. **Music Source Separation**: MusDB18 [MusDB].
+    1. **Music Transcription**: MAPS [MAPS].
+    1. **Music Structure Analysis**: RWC Pop [RWCPOP], SALAMI [SALAMI] and The Beatles [Beatles].
 
-- benchmarks: This module contains scripts and tools for benchmarking NMF algorithms. It includes standardized evaluation metrics and comparison tools to assess the performance of different models.
+- benchmarks: This module contains scripts and tools for benchmarking NMF algorithms. It includes standardized evaluation metrics and comparison tools to assess the performance of different models. Benchmarks are parametrized using the `Hydra` toolbox [Hydra].
 
-## DOCE
-The benchmark uses the doce package for the management of the experiments.
-See the documentation for more details about the doce package: https://doce.readthedocs.io/
-
-In a nutshell, benchmarks are handled using the command-line interface.
-- Run a benchmark using `python <benchmark.py> -c`
-- Evaluate the metrics using `python <benchmark.py> -d`
-- Control the plans (different conditions of experiments) using `python <benchmark.py> -s <plan_name>`
-- Tag experiments using `python <benchmark.py> -t <tag_name>`
-
-The experiment outputs are stored in a folder named 'experiments_outputs' and stored at the same tree level than the one where you run the benchmark.
-
-TODO: add a fixed tree structure for experiment outputs in the future.
-
-# Related Toolboxes
-## NMF audio toolbox
-It appears that there already exist a very similar toolbox, called [NMF Toolbox](https://www.audiolabs-erlangen.de/resources/MIR/NMFtoolbox/#Python) [4]. I was not aware of the existence of this toolbox when I started this work, hence it may reinvent the wheel and do a lot of thing that this toolbox does. Sorry about that. In near future, it may be valuable to add the content of NMF Toolbox into the benchmark (this would also require authorizations from the authors and appropriate citation).
-
-## NMF
-For now, this work uses the [nn_fac](https://github.com/ax-le/nn-fac) toolbox [5] for NMF computation.
-
+The modular design of the toolbox makes it easy to add new components. In particular, you can integrate a new algorithm with confidence that it will work with existing datasets and tasks - or add a new task that's compatible with all current algorithms and datasets. The downside is that this flexibility comes at the cost of a rigid structure, which may not always suit new developments. As a result, significant refactoring may be required to integrate certain future components.
 
 # Contact
 Axel Marmoret - axel.marmoret@imt-atlantique.fr
@@ -86,7 +65,7 @@ For now, only the unconstrained NMF is developed. Sparse and Min-vol NMF should 
 
 Feel free to add your own models! This is the main reason for this toolbox.
 
-In addition, State-of-the-Art models (such as [1]) should be added to the toolbox.
+In addition, State-of-the-Art models (such as [BBV10]) should be added to the toolbox.
 
 ## Tasks
 The current tasks could be enhanced. In particular, the Transcription task, which is done in a naïve way now.
@@ -94,19 +73,44 @@ The current tasks could be enhanced. In particular, the Transcription task, whic
 New tasks could also be added, for instance in general audio processing (speech) or bioacoustics (bioacoustics source separation or sound event detection).
 
 ## Tensor models
-Tensor models constitute a very active literature, which should be tackled in the current toolbox. In particular, tensor models for audio processing already exist (for instance [2, 3]).
+Tensor models constitute a very active literature, which should be tackled in the current toolbox. In particular, tensor models for audio processing already exist (for instance [OF09, MBC19]).
 
 ## GPU-intended NMF
-For now, NMF models run on CPU. GPU are known to be very efficient for matrix computation. Hence, adapting the code for GPU computation (for instance using Tensorly, which enables compatibility with PyTorch) should be a major advantage and time gain.
+For now, NMF models run on CPUs. GPUs are known to be very efficient for matrix computation. Hence, adapting the code for GPU computation (for instance using Tensorly [Tensorly], which enables compatibility with PyTorch) should be a major advantage and time gain.
 
 ## References
 
-[1] Bertin, N., Badeau, R., & Vincent, E. (2010). Enforcing harmonicity and smoothness in Bayesian non-negative matrix factorization applied to polyphonic music transcription. IEEE Transactions on Audio, Speech, and Language Processing, 18(3), 538-549.
+### Tasks
 
-[2] Ozerov, A., & Févotte, C. (2009). Multichannel nonnegative matrix factorization in convolutive mixtures for audio source separation. IEEE transactions on audio, speech, and language processing, 18(3), 550-563.
+[VVG18] Vincent, E., Virtanen, T., & Gannot, S. (Eds.). (2018). Audio source separation and speech enhancement. John Wiley & Sons.
 
-[3] Marmoret, A., Bertin, N., & Cohen, J. (2019). Multi-Channel Automatic Music Transcription Using Tensor Algebra. arXiv preprint arXiv:2107.11250.
+[Ben+18] Benetos, E., Dixon, S., Duan, Z., & Ewert, S. (2018). Automatic music transcription: An overview. IEEE Signal Processing Magazine, 36(1), 20-30.
 
-[4] López-Serrano, Patricio, et al. "NMF toolbox: Music processing applications of nonnegative matrix factorization." Proceedings of the International Conference on Digital Audio Effects DAFx. Vol. 19. 2019.
+[Nie+20] Nieto, O., Mysore, G. J., Wang, C. I., Smith, J. B., Schlüter, J., Grill, T., & McFee, B. (2020). Audio-based music structure analysis: Current trends, open challenges, and applications. Transactions of the International Society for Music Information Retrieval, 3(1).
 
-[5] Marmoret, Axel, and Jérémy E. Cohen. "nn_fac: Nonnegative Factorization techniques toolbox." (2020).
+### Datasets
+
+[MusDB] Rafii, Z., Liutkus, A., Stöter, F. R., Mimilakis, S. I., & Bittner, R. (2017). The MUSDB18 corpus for music separation.
+
+[MAPS] Emiya, V., Bertin, N., David, B., & Badeau, R. (2010). MAPS-A piano database for multipitch estimation and automatic transcription of music.
+
+[RWCPOP] Goto, M., Hashiguchi, H., Nishimura, T., & Oka, R. (2002). RWC Music Database: Popular, classical and jazz music databases. In Proceedings of the International Society for Music Information Retrieval Conference (ISMIR) (pp. 287-288).
+
+[SALAMI] Smith, J. B. L., Burgoyne, J. A., Fujinaga, I., De Roure, D., & Downie, J. S. (2011). Design and creation of a large-scale database of structural annotations. In Proceedings of the International Society for Music Information Retrieval Conference (ISMIR) (pp. 555-560). Miami, FL.
+
+[Beatles] Harte, C. (2010). Towards automatic extraction of harmony information from music signals (Doctoral dissertation). Queen Mary University of London. -- http://isophonics.net/content/reference-annotations-beatles
+
+### Benchmarks
+
+[Hydra] Yadan, O. (2019). Hydra – A framework for elegantly configuring complex applications [Computer software]. GitHub. https://github.com/facebookresearch/hydra
+
+### Future Work
+
+[BBV10] Bertin, N., Badeau, R., & Vincent, E. (2010). Enforcing harmonicity and smoothness in Bayesian non-negative matrix factorization applied to polyphonic music transcription. IEEE Transactions on Audio, Speech, and Language Processing, 18(3), 538-549.
+
+[OF09] Ozerov, A., & Févotte, C. (2009). Multichannel nonnegative matrix factorization in convolutive mixtures for audio source separation. IEEE transactions on audio, speech, and language processing, 18(3), 550-563.
+
+[MBC19] Marmoret, A., Bertin, N., & Cohen, J. (2019). Multi-Channel Automatic Music Transcription Using Tensor Algebra. arXiv preprint arXiv:2107.11250.
+
+[Tensorly] Kossaifi, J., Panagakis, Y., Anandkumar, A., & Pantic, M. (2019). TensorLy: Tensor learning in Python. Journal of Machine Learning Research, 20(26), 1–6. https://github.com/tensorly/tensorly
+

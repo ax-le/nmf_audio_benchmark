@@ -13,8 +13,11 @@ One coud also use the BSS eval metrics, as in [4].
 
 References:
 [1] Vincent, E., Virtanen, T., & Gannot, S. (Eds.). (2018). Audio source separation and speech enhancement. John Wiley & Sons.
+
 [2] Barker, T., & Virtanen, T. (2013, August). Non-negative tensor factorisation of modulation spectrograms for monaural sound source separation. In INTERSPEECH (Vol. 2813, pp. 827-831).
+
 [3] Le Roux, J., Wisdom, S., Erdogan, H., & Hershey, J. R.(2019, May). SDR-half-baked or well done?. In ICASSP 2019-2019 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP) (pp. 626-630). IEEE.
+
 [4] Vincent, E., Gribonval, R., & Févotte, C. (2006). Performance measurement in blind audio source separation. IEEE transactions on audio, speech, and language processing, 14(4), 1462-1469.
 """
 from nmf_audio_benchmark.tasks.base_task import *
@@ -26,7 +29,71 @@ from sklearn.cluster import KMeans
 import base_audio.spectrogram_to_signal as spectrogram_to_signal
 
 import math
+import tqdm
 import warnings
+
+# Actually compute the source separation
+def compute_source_separation_dataset(dataset, nmf, source_separation_object):
+    """
+    Compute the source separation for all the songs in the dataset, using the nmf and the source separation object.
+    """
+    # Initialize the dictionary with NaN scores for each source.
+    dict_all_si_sdr = {}
+    dict_all_si_sdr["average"] = []
+
+    dict_per_track_si_sdr = {}
+
+    for stem_label in dataset.all_stems:
+        dict_all_si_sdr[stem_label] = [np.nan]
+
+    # Iterate over all the songs in the dataset
+    for idx_song in tqdm.tqdm(range(len(dataset))):
+        # One song
+        if source_separation_object.phase_retrieval == "original_phase":
+            assert "complex" in dataset.feature_object.feature, "Phase retrieval requires a complex feature object with both magnitude and phase information."
+            # Get the track id, magnitude, phase, stems and stems labels
+            track_id, (mag, phase), stems, stems_labels = dataset[idx_song]
+        else:
+            if "complex" in dataset.feature_object.feature:
+                warnings.warn("Phase retrieval is set to griffin_lim, but the feature object contains complex information. The phase will be ignored.")
+                track_id, (mag, phase), stems, stems_labels = dataset[idx_song]
+            else:
+                # Get the track id, magnitude, stems and stems labels
+                track_id, mag, stems, stems_labels = dataset[idx_song]
+                phase = None  # Phase is not needed if phase retrieval is not original_phase
+
+        # Compute NMF
+        W, H = nmf.run(data=mag, feature_object=dataset.feature_object)
+
+        # Estimate the individual sources
+        estimated_sources = source_separation_object.predict(W, H, phase=phase)
+
+        # Compute the scores and store them
+        si_sdr, snr, idx_argmax = source_separation_object.score(estimated_sources, stems)
+
+        # Store the average SI-SDR for all estimated sources
+        dict_all_si_sdr["average"].append(np.mean(si_sdr))
+
+        # Store the SI-SDR for this track
+        dict_per_track_si_sdr[track_id] = si_sdr
+
+        # Store the SI-SDR source-wise
+        result_sourcewise_si_sdr = average_scores_sourcewise(si_sdr, idx_argmax, stems_labels)
+
+        # Update the dictionary, with source-wise scores.
+        for key in result_sourcewise_si_sdr:
+            if dict_all_si_sdr[key][0] is np.nan: # First time that this source is estimated
+                dict_all_si_sdr[key][0] = result_sourcewise_si_sdr[key] # Replace the None value by the first result
+            else:
+                dict_all_si_sdr[key].append(result_sourcewise_si_sdr[key]) # Append the score to the list
+
+    to_return = {
+        "per_stem_scores": dict_all_si_sdr,
+        "per_track_scores": dict_per_track_si_sdr
+    }
+
+    return to_return
+
 
 class MusicSourceSeparation(BaseTask):
     """
@@ -47,6 +114,10 @@ class MusicSourceSeparation(BaseTask):
         si_sdr, idx_argmax = evaluate_si_sdr(annotations, estimations, scaling=True)
         snr, _ = evaluate_si_sdr(annotations, estimations, scaling=False)
         return si_sdr, snr, idx_argmax
+    
+    def compute_task_on_dataset(self, dataset, nmf):
+        return compute_source_separation_dataset(dataset, nmf, self)
+
 
 # %% Compute sources from NMF
 def estimate_sources(W, H, feature_object, nb_sources=4, phase_retrieval = "original_phase", phase=None):

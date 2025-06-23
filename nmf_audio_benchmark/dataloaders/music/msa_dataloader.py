@@ -1,21 +1,34 @@
 """
-This module contains the dataloaders for the main datasets in MSA: SALAMI, RWCPOP and Beatles dataset.
+This module contains the dataloaders for the main datasets in MSA: SALAMI [1], RWCPOP [2] and Beatles [3] datasets.
+
+Using NMF for the MSA task is not very standard. Here, it is used at the barscale, following the work presented in [4,5].
+We advise to read papers [4,5] for more details about the method and the specifics treatments used in these dataloaders (Barwise TF matrix) and this task.
 
 It loads the data, but also computes the barwise TF matrix and the bars from the audio files.
-When the barwise TF matrix and bars are computed, they are saved in a cache folder to avoid recomputing them.
+When the barwise TF matrix and bars are computed, they are saved in a cache folder (if provided) to avoid recomputing them.
+
+References
+----------
+[1] Smith, J. B. L., Burgoyne, J. A., Fujinaga, I., De Roure, D., & Downie, J. S. (2011). Design and creation of a large-scale database of structural annotations. In Proceedings of the International Society for Music Information Retrieval Conference (ISMIR) (pp. 555-560). Miami, FL.
+
+|2] Goto, M., Hashiguchi, H., Nishimura, T., & Oka, R. (2002). RWC Music Database: Popular, classical and jazz music databases. In Proceedings of the International Society for Music Information Retrieval Conference (ISMIR) (pp. 287-288).
+
+[3] Harte, C. (2010). Towards automatic extraction of harmony information from music signals (Doctoral dissertation). Queen Mary University of London.
+http://isophonics.net/content/reference-annotations-beatles
+
+[4] Marmoret, A., Cohen, J. E., & Bimbot, F. (2023). Barwise Music Structure Analysis with the Correlation Block-Matching Segmentation Algorithm. Transactions of the International Society for Music Information Retrieval (TISMIR), 6(1), 167-185.
+
+[5] Marmoret, A., Cohen, J. E., & Bimbot, F. (2022, June). Barwise compression schemes for audio-based music structure analysis. Proceedings of the Sound and Music Computing Conference (SMC 2022), Saint-Étienne, France.
 """
 import librosa
-
 import mirdata
 import mirdata.download_utils
-
 import pathlib
 import shutil
 import numpy as np
 import os
 import warnings
 
-# import base_audio.signal_to_spectrogram as signal_to_spectrogram
 from nmf_audio_benchmark.dataloaders.base_dataloader import *
 
 import as_seg
@@ -242,7 +255,7 @@ class RWCPopDataloader(MSABaseDataloader):
         You can follow mirdata standards if you want, but you will have to modify the dataloader accordingly (in particular the datapaths in the tracks).
         Also, the cache may not work, please be careful.
         If you want to follow my version but have the data as mirdata, you can use the following function to copy the audio files to the right location.
-        It is not extensively tested though, so don't delete the original files.
+        CAREFUL: It is not extensively tested though, so don't delete the original files.
 
         Parameters
         ----------
@@ -553,18 +566,18 @@ class BeatlesDataloader(MSABaseDataloader):
         """
         return len(self.all_tracks) # Why not just len(indexes, an in the base class?)
 
-if __name__ == "__main__":
-    rwcpop = RWCPopDataloader('/home/a23marmo/datasets/rwcpop', feature = "mel", cache_path = "/home/a23marmo/datasets/rwcpop/cache")
-    # rwcpop.format_dataset('/home/a23marmo/Bureau/Audio samples/rwcpop/Entire RWC')
+# if __name__ == "__main__":
+#     rwcpop = RWCPopDataloader('/home/a23marmo/datasets/rwcpop', feature = "mel", cache_path = "/home/a23marmo/datasets/rwcpop/cache")
+#     # rwcpop.format_dataset('/home/a23marmo/Bureau/Audio samples/rwcpop/Entire RWC')
     
-    print(len(rwcpop))
-    for track_id, bars, barwise_tf_matrix, annotations in rwcpop:
-        print(track_id)
+#     print(len(rwcpop))
+#     for track_id, bars, barwise_tf_matrix, annotations in rwcpop:
+#         print(track_id)
 
-    # salami = SALAMIDataloader('/home/a23marmo/datasets/salami', feature = "mel", cache_path = '/home/a23marmo/datasets/salami/cache', subset = "train")
+#     # salami = SALAMIDataloader('/home/a23marmo/datasets/salami', feature = "mel", cache_path = '/home/a23marmo/datasets/salami/cache', subset = "train")
 
-    # for track_id, bars, barwise_tf_matrix, dict_annotations in salami:
-    #     try:
-    #         print(track_id)
-    #     except FileNotFoundError:
-    #         print(f'{track_id} not found.')
+#     # for track_id, bars, barwise_tf_matrix, dict_annotations in salami:
+#     #     try:
+#     #         print(track_id)
+#     #     except FileNotFoundError:
+#     #         print(f'{track_id} not found.')

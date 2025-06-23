@@ -1,0 +1,44 @@
+## One default configuration for the Music Structure Analysis benchmark using NMF.
+
+algorithm:
+  object:
+    _target_: nmf_audio_benchmark.algorithms.nn_fac_nmf.unconstrained_NMF
+    rank: 10
+    beta: 1
+    init: "nndsvd"
+    nmf_type: "unconstrained"
+    update_rule: "mu"
+    ## Default parameters, if needed:
+    # n_iter: 200
+    # tol: 1e-6
+    # sparsity_coefficients: [None, None]
+    # fixed_modes: []
+    # normalize: [True, False]
+    # verbose: False
+
+dataloader:
+  path: "/home/a23marmo/datasets/rwcpop" # "/path/to/rwc_pop"
+  name: "rwcpop"
+  object:
+    _target_: "nmf_audio_benchmark.dataloaders.music.msa_dataloader.RWCPopDataloader"
+    datapath: ${dataloader.path}
+    feature: "nn_log_mel"
+    cache_path: "${dataloader.path}/cache"
+    sr: 44100
+    download: True
+
+task:
+  name: "music_structure_analysis"
+  object:
+    _target_: "nmf_audio_benchmark.tasks.music.msa.MSA_CBMEstimator"
+    similarity_function: "cosine"
+    max_size: 32
+    penalty_weight: 1
+    penalty_func: "modulo8"
+    bands_number: 7
+
+hydra:
+  run:
+    dir: "./experiments_outputs/${task.name}/${dataloader.name}/${algorithm.object.nmf_type}/rank_${algorithm.object.rank}/${now:%Y-%m-%d_%H-%M-%S}"
+  job:
+    name: "${task.name}_benchmark"

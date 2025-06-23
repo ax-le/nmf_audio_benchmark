@@ -1,7 +1,11 @@
 """
-This module contains the dataloaders for the main dataset in MSS: MusDB18 dataset. Can be extended to other datasets.
+This module contains the dataloaders for the main dataset in MSS: MusDB18 [1] dataset. Can be extended to other datasets.
 
 It loads the spectrogram and the stems annotations for each song in the dataset.
+
+References
+----------
+[1] Rafii, Z., Liutkus, A., Stöter, F. R., Mimilakis, S. I., & Bittner, R. (2017). The MUSDB18 corpus for music separation.
 """
 
 import mirdata
@@ -54,7 +58,7 @@ class MusDBDataloader(MSSBaseDataloader):
     
     name = "musdb"
 
-    def __init__(self, datapath, feature, cache_path = None, sr=44100, hop_length = 512, verbose = False, multichannel = False, chunk_duration = 30):
+    def __init__(self, datapath, feature, cache_path = None, sr=44100, n_fft=2048, hop_length = 512, verbose = False, multichannel = False, chunk_duration = 30):
         """
         Constructor of the MusDBDataloader class.
 
@@ -77,7 +81,7 @@ class MusDBDataloader(MSSBaseDataloader):
             If True, print some information about the cache.
             The default is False
         """
-        super().__init__(feature = feature, cache_path = cache_path, sr=sr, hop_length=hop_length, verbose=verbose, multichannel=multichannel)
+        super().__init__(feature = feature, cache_path = cache_path, sr=sr, n_fft=n_fft, hop_length=hop_length, verbose=verbose, multichannel=multichannel)
         self.mus = musdb.DB(root=datapath, subsets="test", download=False)
         self.indexes = range(len(self.mus))
         self.chunk_duration = chunk_duration
@@ -105,6 +109,6 @@ class MusDBDataloader(MSSBaseDataloader):
         spectrogram = self.get_spectrogram(signal)
         return track.name, spectrogram, stems, stems_labels
     
-if __name__ == "__main__":
-    musdb_18 = MusDBDataloader('/home/a23marmo/datasets/musdb18', feature = "mel", cache_path = None)
-    print(len(musdb_18))
+# if __name__ == "__main__":
+#     musdb_18 = MusDBDataloader('/home/a23marmo/datasets/musdb18', feature = "mel", cache_path = None)
+#     print(len(musdb_18))

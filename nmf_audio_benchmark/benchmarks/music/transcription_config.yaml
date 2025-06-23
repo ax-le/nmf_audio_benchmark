@@ -1,0 +1,58 @@
+## One default configuration for the Music Transcription benchmark using NMF.
+
+algorithm:
+  object:
+    _target_: nmf_audio_benchmark.algorithms.nn_fac_nmf.unconstrained_NMF
+    rank: 10
+    beta: 1
+    init: "nndsvd"
+    nmf_type: "unconstrained"
+    update_rule: "mu"
+    ## Default parameters, if needed:
+    # n_iter: 200
+    # tol: 1e-6
+    # sparsity_coefficients: [None, None]
+    # fixed_modes: []
+    # normalize: [True, False]
+    # verbose: False
+
+dataloader:
+  path: "path/to/MAPS/dataset" # "C:/Users/a23marmo/Desktop/audio_samples/MAPS"
+  name: "MAPS"
+  object:
+    _target_: "nmf_audio_benchmark.dataloaders.music.transcription_dataloader.MAPSDataloader"
+    datapath: ${dataloader.path}
+    feature: stft
+    subfolder: "AkPnBcht"
+    cache_path: None
+    sr: 44100
+    n_fft: 3528 # Weird, but values from [1]
+    hop_length: 882
+    ## Default parameters, if needed:
+    # verbose: False
+    # multichannel: False
+    # chunk_duration: 30
+
+task:
+  name: "music_transcription"
+  object:
+    _target_: "nmf_audio_benchmark.tasks.music.transcription.Transcription"
+    feature_object:
+      _target_: base_audio.signal_to_spectrogram.FeatureObject
+      sr: ${dataloader.object.sr}
+      feature: ${dataloader.object.feature}
+      hop_length: ${dataloader.object.hop_length}
+      n_fft: ${dataloader.object.n_fft}
+    threshold: 0.01
+    salience_shift_autocorrelation: 0.3
+    smoothing_window: 5
+    H_normalization: True
+    adaptative_threshold: True
+    averaging_window_adaptative: 10
+    verbose: False
+
+hydra:
+  run:
+    dir: "./experiments_outputs/${task.name}/${dataloader.name}/${algorithm.object.nmf_type}/rank_${algorithm.object.rank}/${now:%Y-%m-%d_%H-%M-%S}"
+  job:
+    name: "${task.name}_benchmark"

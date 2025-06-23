@@ -1,2 +1,2 @@
 madmom>=0.16.1 # Ideally install it directly from git, as it will raise an error otherwise https://github.com/CPJKU/madmom
-as_seg==0.1.10
+as_seg==0.1.11

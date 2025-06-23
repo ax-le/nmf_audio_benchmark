@@ -1,0 +1,32 @@
+## One default configuration file, using the default classes.
+
+algorithm:
+  object:
+    _target_: "nmf_audio_benchmark.algorithms.template_nmf.TemplateNMF"
+    rank: 10
+    beta: 2
+    init: "random"
+    nmf_type: "unconstrained"
+
+dataloader:
+  path: "/path/for/the/dataset"
+  name: "template_dataset"
+  object:
+    _target_: "nmf_audio_benchmark.dataloaders.template_dataloader.TemplateDataloader"
+    feature: "stft"
+    cache_path: "/path/to/cache"
+    sr: 44100
+
+task:
+  name: "template_task"
+  object:
+    _target_: "nmf_audio_benchmark.tasks.template_task.TemplateTask"
+
+hyperparams:
+  varying_parameter: ["value_1", "value_2"]
+
+hydra:
+  run:
+    dir: "./experiments_outputs"
+  sweep:
+    dir: "./experiments_outputs"

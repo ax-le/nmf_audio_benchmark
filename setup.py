@@ -26,7 +26,7 @@ setuptools.setup(
     license='BSD',
     install_requires=[
         'base_audio>=0.1.0',
-        'doce>=0.1',
+        'hydra-core>=1.3.2',
         'librosa >= 0.10.2',
         'matplotlib',
         'mir_eval',

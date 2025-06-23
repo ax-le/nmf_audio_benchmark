@@ -21,7 +21,7 @@ import nn_fac.nmf as NMF
 import numpy as np
 import warnings
 
-class nn_fac_NMF():
+class unconstrained_NMF():
     """
     NMF object, following the scikit-learn and PyTorch API.
     
@@ -29,7 +29,7 @@ class nn_fac_NMF():
     """
     # TODO: Implement the min_vol and sparse NMF types
 
-    def __init__(self, rank, beta, init, nmf_type="unconstrained", update_rule = "mu", n_iter = 100, tol=0.0001, sparsity_coefficients=[None, None], fixed_modes = [], normalize=[False, False], verbose=False):
+    def __init__(self, rank, beta, init, nmf_type="unconstrained", update_rule = "mu", n_iter = 200, tol=1e-6, sparsity_coefficients=[None, None], fixed_modes = [], normalize=[True, False], verbose=False):
         """
         Instanciate the NMF object with the parameters.
 
@@ -61,6 +61,9 @@ class nn_fac_NMF():
             Normalize the W and H matrices. The default is [False, False].
         verbose : bool, optional
             Verbose mode. The default is False.
+        nmf_type : str, optional
+            Type of NMF decomposition. Can be "unconstrained", "min_vol" or "sparse". The default is "unconstrained".
+            This is a placeholder for experiments, in order to implement and compare different NMF types.
         """
         if init == "harmonic": # The harmonic init means that W is set as harmonic spectra, following the pitch of a harmonic notes. They follow the MIDI pitches, from 1 to 88.
             self.init = "custom"
@@ -118,6 +121,8 @@ class nn_fac_NMF():
             # TODO: for future developements, only W_0 could be provided, with H_0 initialized with a random matrix or via one pass of MU.
             # Useful for dictionary learning or any kind of prior information on W.
                 
+        # TODO: Different NMF types will be probably implemented in different classes. Will depend on future developments.
+        # For now, only the unconstrained NMF type is implemented.
         match self.nmf_type:
             case "unconstrained":
 
@@ -145,6 +150,25 @@ class nn_fac_NMF():
         return W, H
 
     def harmonic_init(self, data, feature_object):
+        """
+        Initialize W_0 with a harmonic template, following the pitch of a piano. 
+        Credits to Meinard Müller and Tim Zunner. https://www.audiolabs-erlangen.de/resources/MIR/FMP/C8/C8S3_NMFSpecFac.html.
+        
+        Parameters
+        ----------
+        data : np.ndarray
+            Data matrix to decompose.
+        feature_object : object
+            Feature object, used to get the sampling rate and the number of FFT points.
+        
+        Returns
+        -------
+        W_0 : np.ndarray
+            W matrix of the NMF decomposition, initialized with a harmonic template.
+        H_0 : np.ndarray
+            H matrix of the NMF decomposition, initialized with a random matrix.
+        """
+
         # Initialize W_0 with a harmonic template, following the pitch of a piano. Credits to Meinard Müller and Tim Zunner. https://www.audiolabs-erlangen.de/resources/MIR/FMP/C8/C8S3_NMFSpecFac.html.
         W_0 = init_helper.init_nmf_template_pitch(K=data.shape[0], pitch_set=range(1,89), freq_res=feature_object.sr/feature_object.n_fft, tol_pitch=0.05)
 

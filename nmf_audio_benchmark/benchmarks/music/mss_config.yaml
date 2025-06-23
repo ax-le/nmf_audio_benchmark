@@ -1,0 +1,48 @@
+## One default configuration for the Music Source Separation benchmark using NMF.
+
+algorithm:
+  object:
+    _target_: nmf_audio_benchmark.algorithms.nn_fac_nmf.unconstrained_NMF
+    rank: 10
+    beta: 1
+    init: "nndsvd"
+    nmf_type: "unconstrained"
+    update_rule: "mu"
+    ## Default parameters, if needed:
+    # n_iter: 200
+    # tol: 1e-6
+    # sparsity_coefficients: [None, None]
+    # fixed_modes: []
+    # normalize: [True, False]
+    # verbose: False
+
+dataloader:
+  path: "/home/a23marmo/datasets/musdb18" # "/path/to/msudb" # 
+  name: "MUSDB18"
+  object:
+    _target_: "nmf_audio_benchmark.dataloaders.music.mss_dataloader.MusDBDataloader"
+    datapath: ${dataloader.path}
+    feature: "stft_complex" # Be careful: if phase_retrieval is set to 'original_phase', it requires that the feature is complex-valued.
+    cache_path: None
+    sr: 44100
+    hop_length: 512
+    n_fft: 2048  # This should be set according to the feature extraction method used.
+
+task:
+  name: "music_source_separation"
+  object:
+    _target_: "nmf_audio_benchmark.tasks.music.mss.MusicSourceSeparation"
+    feature_object:
+      _target_: base_audio.signal_to_spectrogram.FeatureObject
+      sr: ${dataloader.object.sr}
+      feature: ${dataloader.object.feature}
+      hop_length: ${dataloader.object.hop_length}
+      n_fft: ${dataloader.object.n_fft}
+    nb_sources: 4
+    phase_retrieval: "original_phase"
+
+hydra:
+  run:
+    dir: "./experiments_outputs/${task.name}/${dataloader.name}/${algorithm.object.nmf_type}/rank_${algorithm.object.rank}/${now:%Y-%m-%d_%H-%M-%S}"
+  job:
+    name: "${task.name}_benchmark"

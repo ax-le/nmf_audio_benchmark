@@ -1,7 +1,11 @@
 """
-This module contains the dataloaders for the MAPS dataset. Can be extended to other datasets (notably MAESTRO).
+This module contains the dataloaders for the MAPS [1] dataset. Can be extended to other datasets (notably MAESTRO).
 
 It loads the spectrogram and the annotations for each song in the dataset.
+
+References
+----------
+[1] Emiya, V., Bertin, N., David, B., & Badeau, R. (2010). MAPS-A piano database for multipitch estimation and automatic transcription of music.
 """
 
 import mirdata # Might be useful
@@ -146,6 +150,6 @@ def load_reference_annotations(ref_path, time_limit = None):
 
     return truth_array
 
-if __name__ == "__main__":
-    musdb_18 = MAPSDataloader('/home/a23marmo/datasets/MAPS', feature = "mel", subfolder = "AkPnBcht", cache_path = None)
-    print(len(musdb_18))
+# if __name__ == "__main__":
+#     maps = MAPSDataloader('/home/a23marmo/datasets/MAPS', feature = "mel", subfolder = "AkPnBcht", cache_path = None)
+#     print(len(maps))

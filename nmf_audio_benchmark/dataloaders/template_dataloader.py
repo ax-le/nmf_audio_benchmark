@@ -1,5 +1,5 @@
 """
-This module contains a template dataloader, which can be used to add a new dataloader.
+This module contains a template dataloader, that you can follow to add a new dataloader.
 It follows the standard in Python for dataloaders in PyTorch.
 
 It loads the data, computes the spectrogram, format folders if needed, and returns a spectrogram and the annotatioons.
@@ -11,9 +11,6 @@ It uses 3 functions:
 - __len__ : Return the number of tracks in the dataset.
 """
 
-import mirdata # Can be used to load a MIR dataset
-
-import librosa
 import shutil
 import numpy as np
 import warnings
@@ -54,7 +51,7 @@ class TemplateDataloader(BaseDataloader):
         # Should be defined somehow, as the list of songs.
         # It is defined as a standard.
         # If you really need to *not* define a list of indexes, don't forget to modify the len function.
-        self.indexes = TODO 
+        self.indexes = [] 
 
     def __getitem__(self, index):
         """
@@ -64,7 +61,7 @@ class TemplateDataloader(BaseDataloader):
     
         return track_id, spectrogram, annotations # The minimal standard set of parametes returned by the function.
 
-    def __len__(self): # This is already the default function, in the mother class. Hence, it should be useful to define it only if you don't use indexes, which is non-standard.
+    def __len__(self):
         """
         Return the number of tracks in the dataset.
         """

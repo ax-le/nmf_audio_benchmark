@@ -1,7 +1,8 @@
 """
 This module contains a base dataloader, which is used a a super-class for all other dataloaders.
 
-It allows to load the signals present in the dataset, and define how to compute spectrograms.
+Using a super-class allows to define common methods and attributes that can be reused in all dataloaders.
+Notably, this class defines how to load the signals present in the dataset, and how to compute spectrograms.
 """
 
 import base_audio.signal_to_spectrogram as signal_to_spectrogram
@@ -87,7 +88,3 @@ class BaseDataloader():
                 raise ValueError(f"Audio {audio_id} not found in the dataset") from None
 
         return self.__getitem__(index)
-    
-if __name__ == "__main__":
-    base = BaseDataloader(feature = "ahah")
-    len(base)

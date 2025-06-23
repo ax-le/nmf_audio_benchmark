@@ -10,12 +10,15 @@ The task is divided into two parts:
 Both parts are based on the NMF decomposition of the spectrogram of the music.
 Both parts are implemented in a relatively naïve way, inspired from [2], and could/should be improved in the future.
 
+TODO: better algorithms for W to notes and H to activations, e.g. using a more sophisticated pitch detection algorithm or a more sophisticated activation detection algorithm.
+
 Functions "predict" and "score" are inspired from scikit-learn, and are used as standards here to compute tasks.
 
 Metrics are computed using the "mir_eval" library, and are based on the F-measure, Precision and Recall, with the tolerance on the onset being 50ms.
 
 References:
 [1] Smaragdis, P., & Brown, J. C. (2003, October). Non-negative matrix factorization for polyphonic music transcription. In 2003 IEEE Workshop on Applications of Signal Processing to Audio and Acoustics (IEEE Cat. No. 03TH8684) (pp. 177-180). IEEE.
+
 [2] Marmoret, A., Bertin, N., & Cohen, J. (2019). Multi-Channel Automatic Music Transcription Using Tensor Algebra. arXiv preprint arXiv:2107.11250.
 """
 from nmf_audio_benchmark.tasks.base_task import *
@@ -25,8 +28,88 @@ import numpy as np
 import librosa
 from collections import defaultdict
 import mir_eval
+import tqdm
 
 import nmf_audio_benchmark.utils.errors as err
+import nmf_audio_benchmark.utils.find_hyperparameters as hyperparams_helper
+from sklearn.base import clone
+
+
+# %% Scripts to compute the transcription
+def compute_transcription(dataset, nmf, transcription_algorithm, time_tolerance=0.1):
+    """
+    Compute the transcription for all the songs in the dataset, with this particular set of parameters.
+    """
+    # Empty dicts for the scores
+    all_accuracies = {}
+    all_f1 = {}
+
+    # Iterate over all the songs in the dataset
+    for idx_song in tqdm.tqdm(range(len(dataset))):
+        # One song
+        track_id, spectrogram, annotations = dataset[idx_song]
+
+        # Compute NMF
+        W, H = nmf.run(data=spectrogram, feature_object=dataset.feature_object)
+
+        # Compute the transcription
+        estimated_transcription = transcription_algorithm.predict(W, H)
+
+        # Compute the metrics
+        f_mes, accuracy = transcription_algorithm.score(estimated_transcription, annotations, time_tolerance=time_tolerance)
+
+        # Compute the metrics
+        all_f1[track_id] = f_mes
+        all_accuracies[track_id] = accuracy
+
+    to_return = {
+        "f1": all_f1,
+        "accuracy": all_accuracies
+    }
+
+    return to_return
+
+# TODO: use Optuna instead
+# def compute_transcription_with_cross_validation(dataset, nmf, default_transcription_algorithm, param_grid, cv=4, time_tolerance=0.1):
+#     """
+#     Cross validation to find the best parameters for the transcription algorithm.
+#     A second option could be hyperparameter optimization, using hyperopt for example, but it may be considered as "cheating".
+
+#     It would have been easier to use the GridSearchCV from scikit-learn, but it is cumbersome to adapt the current code to it.
+#     In particular, it requires to have a single fit for the whole dataset, which is not the mentality of the current code.
+#     """
+
+#     # Empty lists for the scores
+#     all_results = []
+
+#     param_combinations = list(hyperparams_helper.generate_param_grid(param_grid))
+
+#     def evaluate_one_set_params(W, H, annotations, params):
+#         # Clone the default transcription algorithm and update the parameters
+#         transcription_algorithm = clone(default_transcription_algorithm)
+#         transcription_algorithm.update_params(params)
+
+#         # Compute the transcription with the new parameters
+#         estimated_transcription = transcription_algorithm.predict(W, H)
+#         f_mes, accuracy = transcription_algorithm.score(estimated_transcription, annotations, time_tolerance=time_tolerance)
+#         return (f_mes, accuracy)
+    
+#     # Iterate over all the songs in the dataset
+#     for idx_song in tqdm.tqdm(range(len(dataset))):
+#         # One song
+#         track_id, spectrogram, annotations = dataset[idx_song]
+
+#         # Compute NMF
+#         W, H = nmf.run(data=spectrogram, feature_object=dataset.feature_object)
+
+#         # Compute the transcription for all params
+#         all_results.append([evaluate_one_set_params(W, H, annotations, params) for params in param_combinations])
+
+#     # Find the best results in the cross validation scheme
+#     final_results, final_best_params = hyperparams_helper.find_best_results_in_cv_scheme(all_results, cv, param_combinations, nb_metrics=2, test_metric_idx=1)
+
+#     # Return the final results, obtained via cross-validation
+#     return final_results, final_best_params
 
 class Transcription(BaseTask):
     """
@@ -88,6 +171,9 @@ class Transcription(BaseTask):
         """
         f_mes, accuracy = compute_scores(predictions, annotations, time_tolerance=time_tolerance)
         return f_mes, accuracy
+
+    def compute_task_on_dataset(self, dataset, nmf, time_tolerance=0.1, verbose=False):
+        return compute_transcription(dataset=dataset, nmf=nmf, transcription_algorithm=self, time_tolerance=time_tolerance)
     
     def update_params(self, param_grid):
         """
