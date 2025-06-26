@@ -47,7 +47,7 @@ We believe that the numerical linear algebra research community lacks an easy- a
 
 - Providing dataset loaders and pre-processing tools for standard datasets. All MIR dataloaders are based on the `mirdata` [@mirdata] toolbox.
 
-- Leverages the standard Hydra [@Yadan2019Hydra] toolbox to define benchmarks.
+- Leverages the standard Hydra [@yadan2019Hydra] toolbox to define benchmarks.
 
 In practice, new NMF models are often demonstrated on audio tasks, where they may show improved performance. Providing a shared framework for evaluation and comparison makes it easier to benchmark such methods against existing baselines. This allows researchers in numerical linear algebra to focus on algorithmic development, while presenting results in line with standards in the audio literature.
 
@@ -81,7 +81,7 @@ The toolbox is separated in four modules:
 - dataloaders --- the dataloaders for supported datasets. Each dataloader is associated with a task, to pre-process data and annotations according to the requirements of the task.
     - For now, only five datasets are supported. See Section "Tasks (and datasets) Supported" for more details.
 
-- benchmarks --- the benchmark defining code. Benchmarks are supported by Hydra [@Yadan2019Hydra].
+- benchmarks --- the benchmark defining code. Benchmarks are supported by Hydra [@yadan2019Hydra].
 
 The modular design is justified by the fact that, as such, it is possible to add any component (algorithm, task, dataset, or benchmark) without having to tackle the other aspects. Hence, we hope that communities specialized in one of these aspects will be able to contribute.
 
