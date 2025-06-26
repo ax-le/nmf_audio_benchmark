@@ -1,3 +1,4 @@
+---
 title: 'NMF Audio Benchmark: A Toolbox for Benchmarking Nonnegative Matrix Factorization in Audio Processing'
 tags:
 - Python
@@ -18,6 +19,7 @@ index: 1
 
 date: 23 June 2025
 bibliography: paper.bib
+---
 
 # Summary
 
