@@ -23,7 +23,7 @@ bibliography: paper.bib
 
 # Summary
 
-Nonnegative Matrix Factorization (NMF) is a numerical linear algebra technique, with applications for modeling and analyzing audio data [@lee1999learning; @gillis2020nonnegative]. It has been successfully applied to a range of Music Information Retrieval (MIR) tasks, and notably music source separation [@virtanen2003sound; @vincent2018audio], automatic music transcription [@smaragdis2003non; @bertin2010enforcing; @benetos2018automatic], and music structure analysis [@nieto2020segmentationreview; @marmoret2022barwise]. It has also been applied to other audio domains, such as Speech Processing [@mohammadiha2013supervised; shimada2019unsupervised] and ecoacoustics [@lin2017improving; @lin2020source], but, in a first approximation, we focus towards MIR applications, with the hope that future work will expand to numerous audio domains.
+Nonnegative Matrix Factorization (NMF) is a numerical linear algebra technique, with applications for modeling and analyzing audio data [@lee1999learning; @gillis2020nonnegative]. It has been successfully applied to a range of Music Information Retrieval (MIR) tasks, and notably music source separation [@virtanen2003sound; @vincent2018audio], automatic music transcription [@smaragdis2003non; @bertin2010enforcing; @benetos2018automatic], and music structure analysis [@nieto2020segmentationreview; @marmoret2022barwise]. It has also been applied to other audio domains, such as Speech Processing [@mohammadiha2013supervised; @shimada2019unsupervised] and ecoacoustics [@lin2017improving; @lin2020source], but, in a first approximation, we focus towards MIR applications, with the hope that future work will expand to numerous audio domains.
 
 Over the past decade, the interest in NMF for MIR applications has diminished, in a large part due to the superior empirical performance of deep learning approaches in tasks where NMF was standard, such as source separation [@hennequin2020spleeter; @rouard2023hybrid], transcription [@bittner2022lightweight; @cwitkowitz2024timbre; @riley2024high], and structure analysis [@grill2015music; @buisson2024self]. As a result, recent MIR literature has featured relatively few NMF-based methods. Nevertheless, NMF retains several appealing characteristics --- such as interpretability, low computational requirements, and unsupervised learning capabilities --- that make it particularly suitable for scenarios where deep learning may be less effective. For instance, domains with scarce annotated data (for instance music with rare or non-standard instruments), or for historical recordings with atypical and/or degraded recording conditions could benefit from NMF developments. Hence, we argue that NMF remains a complementary modeling approach, and continued research on its use in MIR appears relevant.
 
@@ -75,13 +75,10 @@ Audio is a particularly suitable domain for NMF: many audio signals exhibit addi
 
 The toolbox is separated in four modules:
 - algorithms --- the NMF algorithms.
-    - For now, it only supports the unconstrained NMF with beta-divergence, without additional regularization or constraints. It contains two implementations: one from scikit-learn [@pedregosa2011scikit], and one from nn_fac [@marmoret2020nn_fac].
 
 - tasks --- the audio tasks.
-    - For now, only three MIR tasks are supported: Music Source Separation, Music Transcription and Music Structure Analysis. See Section "Tasks (and datasets) Supported" for more details.
 
 - dataloaders --- the dataloaders for supported datasets. Each dataloader is associated with a task, to pre-process data and annotations according to the requirements of the task.
-    - For now, only five datasets are supported. See Section "Tasks (and datasets) Supported" for more details.
 
 - benchmarks --- the benchmark defining code. Benchmarks are supported by Hydra [@yadan2019Hydra].
 
