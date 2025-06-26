@@ -2,7 +2,7 @@
 
 This is a repository aimed at facilitating the benchmarking of NMF-based techniques in the context of audio processing.
 
-## Overview
+## TL;DR
 
 This toolbox was developed in response to the ongoing development of new low-rank factorization models (in particular under new constraints or objective functions), but testing them under real conditions with audio data is not an easy task. In that spirit, this toolbox was primarily created to:
 
@@ -15,14 +15,88 @@ This toolbox is mainly intended for researchers developing new low-rank factoriz
 
 **This toolbox is still under active development. Any help or comment is welcomed!**
 
-## Features
+## Summary
 
-- **Standardized Evaluation Metrics**: Implement common metrics for evaluating the performance of NMF algorithms on audio data.
-- **Dataset Handling**: Tools for loading, pre-processing, and managing audio datasets.
-- **Baseline Algorithms**: Include implementations of standard NMF algorithms (only beta-divergence NMF without constraints for now).
-- **Extensibility**: Easily add new NMF models and compare their performance against existing baselines.
+Nonnegative Matrix Factorization (NMF) is a numerical linear algebra technique, with applications for modeling and analyzing audio data [@lee1999learning; @gillis2020nonnegative]. It has been successfully applied to a range of Music Information Retrieval (MIR) tasks, and notably music source separation [@virtanen2003sound; @vincent2018audio], automatic music transcription [@smaragdis2003non; @bertin2010enforcing; @benetos2018automatic], and music structure analysis [@nieto2020segmentationreview; @marmoret2022barwise]. It has also been applied to other audio domains, such as Speech Processing [@mohammadiha2013supervised; shimada2019unsupervised] and ecoacoustics [@lin2017improving; @lin2020source], but, in a first approximation, we focus towards MIR applications, with the hope that future work will expand to numerous audio domains.
 
-## Installation
+Over the past decade, the interest in NMF for MIR applications has diminished, in a large part due to the superior empirical performance of deep learning approaches in tasks where NMF was standard, such as source separation [@hennequin2020spleeter; @rouard2023hybrid], transcription [@bittner2022lightweight; @cwitkowitz2024timbre; @riley2024high], and structure analysis [@grill2015music; @buisson2024self]. As a result, recent MIR literature has featured relatively few NMF-based methods. Nevertheless, NMF retains several appealing characteristics --- such as interpretability, low computational requirements, and unsupervised learning capabilities --- that make it particularly suitable for scenarios where deep learning may be less effective. For instance, domains with scarce annotated data (for instance music with rare or non-standard instruments), or for historical recordings with atypical and/or degraded recording conditions could benefit from NMF developments. Hence, we argue that NMF remains a complementary modeling approach, and continued research on its use in MIR appears relevant.
+
+Meanwhile, methodological research on NMF continues to evolve independently of its application in MIR. Recent developments include new algorithmic constraints (_e.g.,_ minimum-volume NMF [@leplat2020blind], multi-objective NMF [@gillis2021distributionally], and multi-resolution NMF [@leplat2022multi]) and novel paradigms such as deep NMF [@le2015deep; @leplat2024deep]. These innovations are sometimes demonstrated using audio tasks, yet their evaluation typically involves limited experimental settings --- frequently relying on a small number of examples rather than comprehensive benchmarking datasets (_e.g.,_ [@leplat2020blind; @gillis2021distributionally; @leplat2022multi]). This may reflect the inherent challenge of designing standard benchmarking protocols that require expertise in both MIR and numerical linear algebra.
+
+To address this challenge, we introduce `nmf_audio_benchmark`, a Python toolbox designed to support systematic and reproducible evaluation of NMF-based methods in audio processing. The framework offers standardized evaluation metrics, integrated dataset handling, baseline algorithms, and tools for experiment management.
+
+By positioning itself at the intersection of the MIR and numerical linear algebra communities, this toolbox aims to:
+- Enable MIR researchers to systematically assess the performance of recent NMF-based techniques using established evaluation protocols.
+- Assist researchers in numerical linear algebra by providing a ready-to-use benchmarking pipeline, allowing them to focus on algorithmic innovation without the overhead of developing application-specific evaluation frameworks.
+
+## Why this toolbox?
+
+We believe that the numerical linear algebra research community lacks an easy- and ready-to-use platform for evaluating NMF models across different audio tasks, where NMF has been particularly important in the past decades. While many novel approaches in NMF methodology introduce improvements in optimization, constraints, or objective functions, comparing them under common real-world conditions remains cumbersome. 
+
+`nmf_audio_benchmark` addresses this issue by:
+
+- Implementing baseline NMF algorithms.
+
+- Enabling simple extension with new NMF algorithms, tasks, and datasets.
+
+- Providing code handling the MIR aspects of the task once the NMF decomposition is computed.
+
+- Providing dataset loaders and pre-processing tools for standard datasets. All MIR dataloaders are based on the `mirdata` [@mirdata] toolbox.
+
+In practice, new NMF models are often demonstrated on audio tasks, where they may show improved performance. Providing a shared framework for evaluation and comparison makes it easier to benchmark such methods against existing baselines. This allows researchers in numerical linear algebra to focus on algorithmic development, while presenting results in line with standards in the audio literature.
+
+### Why NMF?
+
+This toolbox is designed with recent developments in NMF in mind. It is primarily intended for researchers developing new NMF-like methods, to help them evaluate their models on real audio tasks. While deep learning dominates many current approaches, NMF has played a key role in audio processing over the past decades and remains relevant, particularly for out-of-distribution settings or data-scarce domains, or in scenarios where interpretability, simplicity, or incorporating specific prior knowledge are needed. Hence, we believe that NMF-like methods, in particular refined models, may be still relevant for solving audio tasks.
+
+We also believe that NMF remains valuable for MIR practitioners, especially in domains where deep learning models struggle. By making it easier to evaluate and compare NMF methods, this toolbox may help reintroduce NMF into practical workflows and help solve practical audio and MIR tasks.
+
+### Why not deep learning methods?
+
+Deep learning methods currently dominate the landscape of MIR and audio modeling, thanks to their strong performance across many tasks — including those covered in this benchmark — such as source separation [@hennequin2020spleeter; @rouard2023hybrid], transcription [@bittner2022lightweight; @cwitkowitz2024timbre; @riley2024high], and structure analysis [@grill2015music; @buisson2024self]. These models are typically application-driven, and new methods are often benchmarked directly against existing approaches in scientific papers. A benchmarking toolbox may hence appear irrelevant for deep learning methods. Furthermore, deep learning models evolve rapidly and rely on diverse paradigms making it difficult to design a unified, lasting benchmarking framework that stays relevant over time.
+
+By contrast, NMF is expected to remain useful in settings where deep learning is less effective --- for example, when annotated data is scarce, domain conditions are unusual, or interpretability is important. In such cases, meaningful comparisons should be made under consistent assumptions and experimental conditions. Benchmarking in this context is not about competing with deep models, but about evaluating the potential of a constraint or a paradigm compared to very similar methods.
+
+While deep learning baselines could eventually be included for context, we believe the primary focus of this toolbox should remain on comparing NMF-based methods. Benchmarking here is intended to support the development and evaluation of new constraints, objective functions, or algorithmic paradigms within the NMF framework. Comparisons with deep models --- which often solve tasks with different goals, priors, and data requirements --- are best left to individual researchers, depending on the framing and scope of their work.
+
+### Why Audio?
+
+Audio is a particularly suitable domain for NMF: many audio signals exhibit additive structures, repeating patterns, and nonnegativity (_e.g.,_ magnitudes of time-frequency representations), making NMF a natural modeling choice for audio signals. These properties, along with the interpretability of NMF components, have led to its longstanding success in audio tasks. As a result, evaluating new NMF methods on audio not only provides practical benchmarks but also leverages a domain where NMF has strong conceptual grounding and proven relevance.
+
+## Technical Details
+
+### Design of the toolbox
+
+The toolbox is separated in four modules:
+- algorithms --- the NMF algorithms.
+    - For now, it only supports the unconstrained NMF with beta-divergence, without additional regularization or constraints. It contains two implementations: one from scikit-learn [@pedregosa2011scikit], and one from nn_fac [@marmoret2020nn_fac].
+
+- tasks --- the audio tasks.
+    - For now, only three MIR tasks are supported: Music Source Separation, Music Transcription and Music Structure Analysis. See Section "Tasks (and datasets) Supported" for more details.
+
+- dataloaders --- the dataloaders for supported datasets. Each dataloader is associated with a task, to pre-process data and annotations according to the requirements of the task.
+    - For now, only five datasets are supported. See Section "Tasks (and datasets) Supported" for more details.
+
+- benchmarks --- the benchmark defining code. Benchmarks are supported by Hydra [@Yadan2019Hydra].
+
+The modular design is justified by the fact that, as such, it is possible to add any component (algorithm, task, dataset, or benchmark) without having to tackle the other aspects. Hence, we hope that communities specialized in one of these aspects will be able to contribute.
+
+### Tasks (and datasets) Supported
+
+- Music Source Separation --- Separate sources from mixed audio signals [@vincent2018audio].
+    - Supports the MusDB18 [@MusDB] dataset for now.
+
+- Music Transcription --- Detect and localize notes in time and frequency [@Benetos2018].
+    - Supports the MAPS [@MAPS] dataset for now.
+
+- Music Structure Analysis --- Segment songs into structural parts [@Nieto2020].
+    - Supports the RWC POP [@RWCPOP], SALAMI [@SALAMI] and The Beatles [@Beatles] datasets for now.
+
+### Outputs
+
+The outputs are the logs of the benchmark, and metrics obtained by using the NMF on a paticular task with a particular dataset.
+
+### Installation
 
 The code was developed using Python 3.12, and numpy version 1.26.4. Using numpy v2.* may cause errors when installing some dependencies, sorry for the inconvenience.
 
@@ -35,48 +109,33 @@ pip install -r requirements.txt
 ```
 
 Additional requirements can be installed depending on the specific task (e.g., `requirements_msa.txt` or `requirements_mss.txt`).
-## Organization of the Toolbox
-The toolbox is organized into several modules:
 
-- algorithms: This module includes the implementations of the NMF algorithms. Ideally, it provides a standardized interface for adding new NMF models. A template file is present in the folder, to help you add a new NMF algorithm.
+## Future Work
 
-- tasks: This module defines different tasks for which NMF algorithms can be benchmarked. For now, the tasks are:
-    1. **Music Source Separation**: Separating the signals from the different sources in the audio [VVG18].
-    1. **Music Transcription**: Transcribe a spectrogram into notes and their activations [Ben+18]. Currently, this task focuses on the piano and is implemented in a rather naïve way - it could be significantly improved. Future work should tackle this aspect.
-    1. **Music Structure Analysis**: Estimates the structure of a song [Nie+20].
+### NMF developments
+Constrained NMF models: Sparse NMF [@le2015sparse, @cohen2025efficient], minimum-volume [@leplat2020blind], Convolutive NMF [@smaragdis2004nmfd; @wu2022semi] and other constrained NMF variants [@bertin2010enforcing; @gillis2021distributionally; @leplat2022multi].
 
-Example notebooks are available for each task, to help you get into the code.
+### Tasks
+The current tasks could be enhanced. In particular, the Transcription and Source Separation tasks, which are done in a rather naïve way now.
 
-- dataloaders: This module contains utilities for loading and pre-processing audio datasets. It includes functions to handle various audio formats and prepare data for NMF algorithms. Dataloaders are organized according to the different tasks. Available dataloaders are:
-    1. **Music Source Separation**: MusDB18 [MusDB].
-    1. **Music Transcription**: MAPS [MAPS].
-    1. **Music Structure Analysis**: RWC Pop [RWCPOP], SALAMI [SALAMI] and The Beatles [Beatles].
+New tasks could also be added, for instance in general audio processing (speech) or ecoacoustics (ecoacoustics source separation or sound event detection).
 
-- benchmarks: This module contains scripts and tools for benchmarking NMF algorithms. It includes standardized evaluation metrics and comparison tools to assess the performance of different models. Benchmarks are parametrized using the `Hydra` toolbox [Hydra].
+### Datasets
+Many datasets could be added.
 
-The modular design of the toolbox makes it easy to add new components. In particular, you can integrate a new algorithm with confidence that it will work with existing datasets and tasks - or add a new task that's compatible with all current algorithms and datasets. The downside is that this flexibility comes at the cost of a rigid structure, which may not always suit new developments. As a result, significant refactoring may be required to integrate certain future components.
+### Tensor models
+Tensor models constitute a very active literature, which should be tackled in the current toolbox. In particular, tensor models for audio processing already exist (_e.g.,_ [@ozerov2009multichannel; @marmoret2019multi; @marmoret2020uncovering]).
 
-# Contact
+### GPU-intended NMF
+For now, NMF models run on CPUs. GPUs are known to be very efficient for matrix computation. Hence, adapting the code for GPU computation (for instance using Tensorly [@tensorly], which enables compatibility with PyTorch) should be a major advantage and time gain.
+
+## Acknowledgements
+
+We would like to thank the contributors of the datasets and open-source packages that made this work possible. Feedback and contributions are welcomed and encouraged via GitHub.
+
+## Contact
 Axel Marmoret - axel.marmoret@imt-atlantique.fr
 
-# Future work
-## NMF developments
-For now, only the unconstrained NMF is developed. Sparse and Min-vol NMF should soon follow.
-
-Feel free to add your own models! This is the main reason for this toolbox.
-
-In addition, State-of-the-Art models (such as [BBV10]) should be added to the toolbox.
-
-## Tasks
-The current tasks could be enhanced. In particular, the Transcription task, which is done in a naïve way now.
-
-New tasks could also be added, for instance in general audio processing (speech) or bioacoustics (bioacoustics source separation or sound event detection).
-
-## Tensor models
-Tensor models constitute a very active literature, which should be tackled in the current toolbox. In particular, tensor models for audio processing already exist (for instance [OF09, MBC19]).
-
-## GPU-intended NMF
-For now, NMF models run on CPUs. GPUs are known to be very efficient for matrix computation. Hence, adapting the code for GPU computation (for instance using Tensorly [Tensorly], which enables compatibility with PyTorch) should be a major advantage and time gain.
 
 ## References
 
