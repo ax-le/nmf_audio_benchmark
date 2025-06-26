@@ -47,6 +47,8 @@ We believe that the numerical linear algebra research community lacks an easy- a
 
 - Providing dataset loaders and pre-processing tools for standard datasets. All MIR dataloaders are based on the `mirdata` [@mirdata] toolbox.
 
+- Leverages the standard Hydra [@Yadan2019Hydra] toolbox to define benchmarks.
+
 In practice, new NMF models are often demonstrated on audio tasks, where they may show improved performance. Providing a shared framework for evaluation and comparison makes it easier to benchmark such methods against existing baselines. This allows researchers in numerical linear algebra to focus on algorithmic development, while presenting results in line with standards in the audio literature.
 
 ## Why NMF?
