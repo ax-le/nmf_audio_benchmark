@@ -29,6 +29,7 @@ import librosa
 from collections import defaultdict
 import mir_eval
 import tqdm
+import base_audio.signal_to_spectrogram as signal_to_spectrogram
 
 import nmf_audio_benchmark.utils.errors as err
 import nmf_audio_benchmark.utils.find_hyperparameters as hyperparams_helper
@@ -240,7 +241,8 @@ def W_column_to_note(W_col, feature_object, pitch_min = 27, pitch_max = 4500, sa
     if feature_object.feature == "stft":
 
         # Trying to find the maximum of autocorrelation of the waveform, which corresponds to the fundamental frequency in harmonic signals.
-        found_pitch = autocorrelate_signal(W_col, feature_object, salience_shift_autocorrelation)
+        #found_pitch = autocorrelate_signal(W_col, feature_object, salience_shift_autocorrelation)
+        found_pitch = thresholding(W_col, 'stft', feature_object)
         if found_pitch is None: # It means that the autocorrelation was not strong enough to be considered valid.
             ## Trying to find the maximal autocorrelation on the frequency decomposition directly.
             # found_pitch_idx = autocorrelate_freq(W_col, salience_shift_autocorrelation)
@@ -260,8 +262,94 @@ def W_column_to_note(W_col, feature_object, pitch_min = 27, pitch_max = 4500, sa
         else:
             return freq_to_midi(found_pitch)
 
+    elif feature_object.feature == "mel":
+        
+        feat_obj = signal_to_spectrogram.FeatureObject(feature_object.sr, "stft", hop_length=(feature_object.n_fft//4), n_fft=feature_object.n_fft)
+        W_col_matrix = np.zeros((len(W_col),1))
+        W_col_matrix[:,0] = W_col
+        Column = librosa.feature.inverse.mel_to_stft(W_col_matrix, sr=feat_obj.sr, n_fft=feat_obj.n_fft)
+        return W_column_to_note(Column[:,0], feat_obj)
+    
+    elif feature_object.feature == "cqt":
+        found_pitch = thresholding(W_col, 'cqt', feature_object)
+        #found_pitch = autocorrelation_cqt(W_col, feature_object, salience_shift_autocorrelation)
+        if found_pitch < pitch_min: # A lower bound for the frequency range, must be calculated from the size of the window
+            raise ValueError('The pitch is anormally low')
+
+        elif found_pitch > pitch_max:
+            raise ValueError('The pitch is anormally high')
+
+        else:
+            return freq_to_midi(found_pitch)
+
     else:
         raise NotImplementedError("TODO") from None
+
+def thresholding(W_col, feat, feature_object, threshold=0.5):
+    """
+    Méthode très artificielle pour extraire le pitch d'une bande d'un spectrogramme. Trouve la première bin où l'énérgie dépasse un seuil donné
+    puis renvoie la fréquence associée à ce bin.
+    """
+    has_energy = W_col > threshold
+    bin_ind = np.argmax(has_energy)
+    sr = feature_object.sr
+    N = feature_object.n_fft
+    match feat:
+        case "cqt":
+            f_bin = 32.70 * 2**((bin_ind)/12)
+        case "stft":
+            f_bin = bin_ind * (sr/N)
+        case "mel":
+            assert False, "TODO : thresholding pitch estimate for mel spectrograms"
+    return f_bin
+
+def autocorrelation_cqt(
+    cqt_magnitude: np.ndarray,   # vecteur (n,) — magnitude CQT d'une trame
+    feature_object,
+    salience_shift_autocorrelation,
+    #bins_per_octave: int = 12,   # résolution CQT (typiquement 12, 24 ou 36)
+    #fmin: float = 32.70,          # fréquence du bin 0
+    #f0_min: float = 27.5,        # F0 minimale cherchée (Hz)
+    #f0_max: float = 4186.0,      # F0 maximale cherchée (Hz)
+) -> tuple[float, np.ndarray]:
+    """
+    Estimate F0 by autocorrelating the signal after reverting the CQT.
+    """
+    n_bins = len(cqt_magnitude)
+    y = np.zeros((n_bins,2))
+    y[:,0] = cqt_magnitude
+    y[:,1] = cqt_magnitude # il faut au moins deux frames pour faire une icqt, MAIS CA NE MARCHE PAS ATTENTION
+    wave_signal_W_col = librosa.icqt(y, sr=feature_object.sr, hop_length=feature_object.hop_length)
+    
+    # Auto-correlation of the waveform
+    autocorrelation_wave_signal = np.correlate(wave_signal_W_col, wave_signal_W_col, mode='full')
+
+    # Auto-correlation is symmetric, we only keep the second half
+    autocorrelation_wave_signal = autocorrelation_wave_signal[len(autocorrelation_wave_signal)//2:]
+
+    # Normalization (for the threshold)
+    autocorrelation_wave_signal /= np.amax(autocorrelation_wave_signal)
+
+    # Offset on the potential values for autocorrelation in order not to take the maximum, occuring when the signal is correlated at time 0.
+    # This offset has to be large enough to eliminate enough first values which are correlate to the case of 0 delay in autocorrelation.
+    # In that context, we have chosen to take the first negative value of the autocorrelation as the offset, because it eliminates all the values that are correlated to the case of 0 delay.
+    # (can/should be discussed)
+    negative_indices = np.where(autocorrelation_wave_signal < 0)[0]
+    if len(negative_indices) > 0:
+        offset = negative_indices[0]
+    else: # If no negative value is found, it means that the autocorrelation is always positive, which is not possible.
+        return None
+        # raise err.ToDebugException("No negative value found in the autocorrelation of the inverse Fourier transform of the note spectrogram. This should never happen.")
+    
+    ## A second offset idea based on a first guess of the frequency, corresponding to the maximum of the column of the codebook (i.e. the stronget frequency) 
+    # first_guess = np.argmax(W_col)
+    # offset = max(first_guess//2, np.argmin(autocorrelation_wave_signal))
+    print(feature_object.sr/(offset + np.argmax(autocorrelation_wave_signal[offset:])))
+    # If the maximum of the autocorrelation is above a certain threshold, we consider it as a valid pitch
+    if np.amax(autocorrelation_wave_signal[offset:]) > salience_shift_autocorrelation:
+        return feature_object.sr/(offset + np.argmax(autocorrelation_wave_signal[offset:]))
+    else: # Otherwise we consider that the pitch is not valid
+        return None
 
 def autocorrelate_signal(W_col, feature_object, salience_shift_autocorrelation = 0.3):
     """
