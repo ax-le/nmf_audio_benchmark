@@ -241,8 +241,8 @@ def W_column_to_note(W_col, feature_object, pitch_min = 27, pitch_max = 4500, sa
     if feature_object.feature == "stft":
 
         # Trying to find the maximum of autocorrelation of the waveform, which corresponds to the fundamental frequency in harmonic signals.
-        #found_pitch = autocorrelate_signal(W_col, feature_object, salience_shift_autocorrelation)
-        found_pitch = thresholding(W_col, 'stft', feature_object)
+        found_pitch = autocorrelate_signal(W_col, feature_object, salience_shift_autocorrelation)
+        #found_pitch = thresholding(W_col, 'stft', feature_object)
         if found_pitch is None: # It means that the autocorrelation was not strong enough to be considered valid.
             ## Trying to find the maximal autocorrelation on the frequency decomposition directly.
             # found_pitch_idx = autocorrelate_freq(W_col, salience_shift_autocorrelation)
@@ -270,8 +270,8 @@ def W_column_to_note(W_col, feature_object, pitch_min = 27, pitch_max = 4500, sa
         Column = librosa.feature.inverse.mel_to_stft(W_col_matrix, sr=feat_obj.sr, n_fft=feat_obj.n_fft)
         return W_column_to_note(Column[:,0], feat_obj)
     
-    elif feature_object.feature == "cqt":
-        found_pitch = thresholding(W_col, 'cqt', feature_object)
+    elif feature_object.feature == "cqt" or feature_object.feature == "vqt":
+        found_pitch = thresholding(W_col, feature_object.feature, feature_object)
         #found_pitch = autocorrelation_cqt(W_col, feature_object, salience_shift_autocorrelation)
         if found_pitch < pitch_min: # A lower bound for the frequency range, must be calculated from the size of the window
             raise ValueError('The pitch is anormally low')
@@ -281,6 +281,9 @@ def W_column_to_note(W_col, feature_object, pitch_min = 27, pitch_max = 4500, sa
 
         else:
             return freq_to_midi(found_pitch)
+
+    elif feature_object.feature == "pcp":
+        return np.argmax(W_col)
 
     else:
         raise NotImplementedError("TODO") from None
@@ -295,8 +298,8 @@ def thresholding(W_col, feat, feature_object, threshold=0.5):
     sr = feature_object.sr
     N = feature_object.n_fft
     match feat:
-        case "cqt":
-            f_bin = 32.70 * 2**((bin_ind)/12)
+        case "cqt" | "vqt":
+            f_bin = feature_object.fmin * 2**((bin_ind)/feature_object.bins_per_octave)
         case "stft":
             f_bin = bin_ind * (sr/N)
         case "mel":

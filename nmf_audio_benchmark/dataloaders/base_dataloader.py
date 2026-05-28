@@ -10,7 +10,7 @@ import base_audio.signal_to_spectrogram as signal_to_spectrogram
 eps = 1e-10
 
 class BaseDataloader():
-    def __init__(self, feature, cache_path = None, sr=44100, n_fft = 2048, hop_length = 512, verbose = False, multichannel = False):
+    def __init__(self, feature, cache_path = None, sr=44100, n_fft = 2048, hop_length = 512, fmin = None, bins_per_octave = 12, verbose = False, multichannel = False):
         """
         Constructor of the BaseDataloader class.
 
@@ -39,7 +39,7 @@ class BaseDataloader():
         self.cache_path = cache_path
         self.verbose = verbose
 
-        self.feature_object = signal_to_spectrogram.FeatureObject(sr, feature, hop_length=hop_length, n_fft = n_fft)
+        self.feature_object = signal_to_spectrogram.FeatureObject(sr, feature, hop_length=hop_length, n_fft=n_fft, fmin=fmin, bins_per_octave=bins_per_octave)
 
         self.multichannel = multichannel
 

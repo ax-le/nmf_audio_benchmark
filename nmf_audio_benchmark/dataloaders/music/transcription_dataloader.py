@@ -22,7 +22,7 @@ from nmf_audio_benchmark.dataloaders.base_dataloader import *
 eps = 1e-10
 
 class TranscriptionBaseDataloader(BaseDataloader):
-    def __init__(self, feature, cache_path = None, sr=44100, n_fft = 2048, hop_length = 512, verbose = False, multichannel = False):
+    def __init__(self, feature, cache_path = None, sr=44100, n_fft = 2048, hop_length = 512, fmin = None, bins_per_octave = 12, verbose = False, multichannel = False):
         """
         Constructor of TranscriptionBaseDataloader class. Inherits from the BaseDataloader class.
 
@@ -48,7 +48,7 @@ class TranscriptionBaseDataloader(BaseDataloader):
             If True, the dataloader will return the multichannel audio.
             The default is False.
         """
-        super().__init__(feature=feature, cache_path=cache_path, sr=sr, n_fft=n_fft, hop_length = hop_length, verbose = verbose, multichannel = multichannel)
+        super().__init__(feature=feature, cache_path=cache_path, sr=sr, n_fft=n_fft, hop_length = hop_length, fmin = fmin, bins_per_octave = bins_per_octave, verbose = verbose, multichannel = multichannel)
         assert not multichannel # Multichannel is not handled yet.
 
 
@@ -56,7 +56,7 @@ class MAPSDataloader(TranscriptionBaseDataloader):
     
     name = "MAPS"
 
-    def __init__(self, datapath, feature, subfolder, cache_path = None, sr=44100, n_fft = 2048, hop_length = 512, verbose = False, multichannel = False, chunk_duration = 30):
+    def __init__(self, datapath, feature, subfolder, cache_path = None, sr=44100, n_fft = 2048, hop_length = 512, fmin=32.7, bins_per_octave=12, verbose = False, multichannel = False, chunk_duration = 30):
         """
         Constructor of the MAPSDataloader class.
 
@@ -64,7 +64,7 @@ class MAPSDataloader(TranscriptionBaseDataloader):
         ----------
         TODO
         """
-        super().__init__(feature = feature, cache_path = cache_path, sr=sr, n_fft=n_fft, hop_length=hop_length, verbose=verbose, multichannel=multichannel)
+        super().__init__(feature = feature, cache_path = cache_path, sr=sr, n_fft=n_fft, hop_length=hop_length, fmin=fmin, bins_per_octave=bins_per_octave, verbose=verbose, multichannel=multichannel)
         self.datapath = datapath
         self.subset_path = f"{datapath}/{subfolder}/MUS" # Listing all files from the "MUS" subsubfolder, i.e. all musics
         self.song_path = glob.glob(rf"{self.subset_path}/*.wav")
