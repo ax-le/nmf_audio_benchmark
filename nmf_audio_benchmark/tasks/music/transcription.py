@@ -417,7 +417,7 @@ def autocorrelate_freq(W_col, salience_shift_autocorrelation = 0.3):
 
 
 # %% H to onsets
-def H_to_activations(W_notes, H, feature_object, threshold, smoothing_window = 5, H_normalization = True, adaptative_threshold = False, averaging_window_adaptative = 10, verbose = True):
+def H_to_activations(W_notes, H_in, feature_object, threshold, smoothing_window = 5, H_normalization = True, adaptative_threshold = False, averaging_window_adaptative = 10, verbose = True):
     """
     Estimate the activations of the notes in the transcription.
     Notes are detected when the activation level is above a certain threshold.
@@ -451,9 +451,17 @@ def H_to_activations(W_notes, H, feature_object, threshold, smoothing_window = 5
         verbose mode. The default is True.
     """
     if H_normalization:
-        H_max = np.linalg.norm(H, 'fro')
+        #H_max = np.linalg.norm(H, 'fro')
+        #H = H_in.copy()
+        #for i in range(len(H)):
+            #H[i,:] /= np.max(H[i,:])
+        #H_max = 1
+        H = H_in / (np.mean(H_in, axis=1, keepdims=True) + 1e-10)
+        H_max = 1
+
     else:
         H_max = 1
+        H = H_in
 
     note_tab = []
 
