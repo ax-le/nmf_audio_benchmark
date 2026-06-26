@@ -451,13 +451,13 @@ def H_to_activations(W_notes, H_in, feature_object, threshold, smoothing_window 
         verbose mode. The default is True.
     """
     if H_normalization:
-        #H_max = np.linalg.norm(H, 'fro')
-        #H = H_in.copy()
+        H_max = np.linalg.norm(H_in, 'fro')
+        H = H_in.copy()
         #for i in range(len(H)):
             #H[i,:] /= np.max(H[i,:])
         #H_max = 1
-        H = H_in / (np.mean(H_in, axis=1, keepdims=True) + 1e-10)
-        H_max = 1
+        #H = H_in / (np.mean(H_in, axis=1, keepdims=True) + 1e-10)
+        #H_max = 1
 
     else:
         H_max = 1
