@@ -1,19 +1,21 @@
 """
-Code defining the Music Structure Analysis task, using the CBM algorithm [1], [2, Chap 3].
-Future algorithms could come from the MSAF toolbox [3].
+Code defining the Music Structure Analysis task, using the CBM algorithm [1], [2, Chap 3], on top of NMF [3].
+Future algorithms could come from the MSAF toolbox [4].
 
 Functions "predict" and "score" are inspired from scikit-learn, and are used as standards here to compute tasks.
 
-Metrics are computed using the "mir_eval" toolbox [4], and are based on the F-measure, Precision and Recall, with tolerances being 0.5s and 3s, as in MIREX standards [2].
+Metrics are computed using the "mir_eval" toolbox [5], and are based on the F-measure, Precision and Recall, with tolerances being 0.5s and 3s, as in MIREX standards [2].
 
 References:
 [1] Marmoret, A., Cohen, J. E., & Bimbot, F. (2023). Barwise Music Structure Analysis with the Correlation Block-Matching Segmentation Algorithm. Transactions of the International Society for Music Information Retrieval (TISMIR), 6(1), 167-185.
 
 [2] Marmoret, A. (2022). Unsupervised Machine Learning Paradigms for the Representation of Music Similarity and Structure (Doctoral dissertation, Université Rennes 1).
 
-[3] Nieto, O., & Bello, J. P. (2015). Msaf: Music structure analytis framework. In Proceedings of 16th International Society for Music Information Retrieval Conference (ISMIR 2015).
+[3] Marmoret, A., Cohen, J. E., & Bimbot, F. (2022, June). Barwise compression schemes for audio-based music structure analysis. Proceedings of the Sound and Music Computing Conference (SMC 2022), Saint-Étienne, France.
 
-[4] Raffel, C., McFee, B., Humphrey, E. J., Salamon, J., Nieto, O., Liang, D., & Ellis, D. P. W. (2014). mir_eval: A transparent implementation of common MIR metrics. In Proceedings of the 15th International Society for Music Information Retrieval Conference (ISMIR).
+[4] Nieto, O., & Bello, J. P. (2015). Msaf: Music structure analytis framework. In Proceedings of 16th International Society for Music Information Retrieval Conference (ISMIR 2015).
+
+[5] Raffel, C., McFee, B., Humphrey, E. J., Salamon, J., Nieto, O., Liang, D., & Ellis, D. P. W. (2014). mir_eval: A transparent implementation of common MIR metrics. In Proceedings of the 15th International Society for Music Information Retrieval Conference (ISMIR).
 """
 
 from nmf_audio_benchmark.tasks.base_task import *
