@@ -23,7 +23,7 @@ References:
 """
 from nmf_audio_benchmark.tasks.base_task import *
 
-import math
+
 import numpy as np
 import librosa
 from collections import defaultdict
@@ -31,8 +31,8 @@ import mir_eval
 import tqdm
 
 import nmf_audio_benchmark.utils.errors as err
-import nmf_audio_benchmark.utils.find_hyperparameters as hyperparams_helper
-from sklearn.base import clone
+import nmf_audio_benchmark.utils.data_manipulation as dm
+import nmf_audio_benchmark.tasks.generic.sound_event_detection as sed
 
 
 # %% Scripts to compute the transcription
@@ -115,54 +115,91 @@ class Transcription(BaseTask):
     """
     Class for the Transcription algorithm. Inspired from the scikit-learn API: https://scikit-learn.org/stable/auto_examples/developing_estimators/sklearn_is_fitted.html, Author: Kushan <kushansharma1@gmail.com>, License: BSD 3 clause
     """
-    def __init__(self, feature_object, salience_shift_autocorrelation = 0.3, threshold = 0.01, smoothing_window = 5, H_normalization = True, adaptative_threshold = False, averaging_window_adaptative = 10, verbose = False):
+    def __init__(self, feature_object, salience_shift_autocorrelation = 0.3,
+                 H_process = "thresholding", threshold = 0.01, smoothing_window = 5, H_normalization = None,
+                 ruptures_detector_model = 'normal', pelt_penalty = 0, pelt_min_size = 1,
+                 energy_filtering_criterion = None, energy_filter_stat = "mean_energy", percentile_detection = 90, energy_filter_threshold = None,
+                 time_tol = None, min_duration = None, max_duration = None,
+                 verbose = False):
         """
         Constructor of the Transcription estimator.
+
+        Temporal detection of the note activations (H matrix post-processing) is delegated to
+        nmf_audio_benchmark.tasks.ecoacoustics.sound_event_detection.detect, so the same three
+        detectors ("thresholding", "pelt" and "window") and the same post-processing options
+        (energy filtering, gap merging, duration filtering) are available here.
 
         Parameters
         ----------
         feature_object : object
-            The object containing the feature parameters of the audio signal. 
+            The object containing the feature parameters of the audio signal.
         salience_shift_autocorrelation : float, optional
-            The threshold for the autocorrelation of the waveform to detect the fundamental frequency. 
+            The threshold for the autocorrelation of the waveform to detect the fundamental frequency.
             Below this threshold, the pitch is considered as invalid.
             The default is 0.3.
+        H_process : {"thresholding", "pelt", "window"}, optional
+            The detector used to find the note segments in each row of H. The default is "thresholding".
         threshold : float, optional
-            The threshold to detect the presence of a note in the activations.
-            The default is 0.01.
+            The threshold to detect the presence of a note in the activations (used by "thresholding" and, as
+            the ruptures ``epsilon``, by "window"). The default is 0.01.
         smoothing_window : integer, optional
-            The number of frames to average the activation value in order to detect the presence of a note, in the default way (non adaptative).
-            The default is 5.
-        H_normalization : boolean, optional
-            If True, the activations are normalized.
-            The default is True.
-        adaptative_threshold : boolean, optional
-            If True, the threshold is adaptative, i.e. the activation value should be above the threshold and the average activation value over several frames.
-            The default is False.
-        averaging_window_adaptative : integer, optional
-            The number of frames to average the activation value in order to detect the presence of a note, in the adaptative way.
-            This number counts for negative and positive frames, i.e. computing the average over 2*averaging_window_adaptative + 1 frames.
-            The default is 10.
+            The number of frames to average the activation value in order to detect the presence of a note
+            (used by "thresholding"), or the window width (used by "window"). The default is 5.
+        H_normalization : {None, "max", "row_max", "mean", "row_mean", "l2", "row_l2"}, optional
+            How H is normalized before detection. The default is None (no normalization).
+        ruptures_detector_model : str, optional
+            The ruptures cost model, used by "pelt" and "window". The default is 'normal'.
+        pelt_penalty : float, optional
+            The PELT penalty, used by "pelt". The default is 0.
+        pelt_min_size : integer, optional
+            The PELT minimal segment size, used by "pelt". The default is 1.
+        energy_filtering_criterion : {None, "percentile", "threshold"}, optional
+            If set, PELT segments are additionally selected by their energy. The default is None.
+        energy_filter_stat : {"mean_energy", "cumulative_energy"}, optional
+            The statistic used for the energy filtering. The default is "mean_energy".
+        percentile_detection : float, optional
+            The percentile used when energy_filtering_criterion is "percentile". The default is 90.
+        energy_filter_threshold : float, optional
+            The threshold used when energy_filtering_criterion is "threshold". Defaults to ``threshold`` when None.
+        time_tol : float, optional
+            If set, segments closer than time_tol (in seconds) are merged. The default is None.
+        min_duration : float, optional
+            Minimal duration (in seconds) of a note, used together with max_duration. The default is None.
+        max_duration : float, optional
+            Maximal duration (in seconds) of a note, used together with min_duration. The default is None.
         verbose : boolean, optional
             verbose mode. The default is False.
         """
         self.feature_object = feature_object
         self.salience_shift_autocorrelation = salience_shift_autocorrelation
+        self.H_process = H_process
         self.threshold = threshold
         self.smoothing_window = smoothing_window
         self.H_normalization = H_normalization
-        self.adaptative_threshold = adaptative_threshold
-        self.averaging_window_adaptative = averaging_window_adaptative
+        self.ruptures_detector_model = ruptures_detector_model
+        self.pelt_penalty = pelt_penalty
+        self.pelt_min_size = pelt_min_size
+        self.energy_filtering_criterion = energy_filtering_criterion
+        self.energy_filter_stat = energy_filter_stat
+        self.percentile_detection = percentile_detection
+        self.energy_filter_threshold = energy_filter_threshold
+        self.time_tol = time_tol
+        self.min_duration = min_duration
+        self.max_duration = max_duration
         self.verbose = verbose
 
     def predict(self, W, H):
         """
-        Compute the transcription from the NMF decomposition of the spectrogram.        
+        Compute the transcription from the NMF decomposition of the spectrogram.
         """
         W_notes = W_to_notes(W=W, feature_object=self.feature_object, salience_shift_autocorrelation=self.salience_shift_autocorrelation, verbose = self.verbose)
-        activations = H_to_activations(W_notes=W_notes, H=H, feature_object=self.feature_object, threshold=self.threshold, 
-                                       smoothing_window=self.smoothing_window, H_normalization=self.H_normalization, 
-                                       adaptative_threshold=self.adaptative_threshold, averaging_window_adaptative=self.averaging_window_adaptative, verbose = self.verbose)
+        activations = H_to_activations(W_notes=W_notes, H=H, feature_object=self.feature_object,
+                                       H_process=self.H_process, threshold=self.threshold, smoothing_window=self.smoothing_window, H_normalization=self.H_normalization,
+                                       ruptures_detector_model=self.ruptures_detector_model, pelt_penalty=self.pelt_penalty, pelt_min_size=self.pelt_min_size,
+                                       energy_filtering_criterion=self.energy_filtering_criterion, energy_filter_stat=self.energy_filter_stat,
+                                       percentile_detection=self.percentile_detection, energy_filter_threshold=self.energy_filter_threshold,
+                                       time_tol=self.time_tol, min_duration=self.min_duration, max_duration=self.max_duration,
+                                       verbose = self.verbose)
         return activations
     
     def score(self, predictions, annotations, time_tolerance=0.1):
@@ -258,7 +295,7 @@ def W_column_to_note(W_col, feature_object, pitch_min = 27, pitch_max = 4500, sa
             raise ValueError('The pitch is anormally high')
 
         else:
-            return freq_to_midi(found_pitch)
+            return dm.freq_to_midi(found_pitch)
 
     else:
         raise NotImplementedError("TODO") from None
@@ -326,12 +363,42 @@ def autocorrelate_freq(W_col, salience_shift_autocorrelation = 0.3):
 
 
 # %% H to onsets
-def H_to_activations(W_notes, H, feature_object, threshold, smoothing_window = 5, H_normalization = True, adaptative_threshold = False, averaging_window_adaptative = 10, verbose = True):
+def _detect_note_segments_frames(H, H_process, threshold, smoothing_window, H_normalization,
+                                  ruptures_detector_model, pelt_penalty, pelt_min_size, verbose):
     """
-    Estimate the activations of the notes in the transcription.
-    Notes are detected when the activation level is above a certain threshold.
-    The default way is to consider that a note is detected if the activation level is above the threshold and the average activation level over several frames is above the threshold, to avoid spurious peaks.
-    The adaptative way is to consider that a note is detected if the activation level is above a fixed value for the thrshold + the averaged value of activations over <averaging_window_adaptative> frames in the past and the future.
+    Dispatch the frame-domain segment detection to nmf_audio_benchmark.tasks.ecoacoustics.sound_event_detection.
+
+    Returns a dict mapping note (row of H) index to a list of (start_frame, end_frame) segments.
+    """
+    match H_process:
+        case "thresholding":
+            return sed.threshold_H(H, threshold, smoothing_window=smoothing_window, H_normalization=H_normalization, verbose=verbose)
+
+        case "pelt":
+            return sed.run_pelt(H, model=ruptures_detector_model, penalty=pelt_penalty, min_size=pelt_min_size, H_normalization=H_normalization, verbose=verbose)
+
+        case "window":
+            return sed.run_window_ruptures(H, smoothing_window=smoothing_window, model=ruptures_detector_model, threshold=threshold, H_normalization=H_normalization)
+
+        case _:
+            raise ValueError(f"Unsupported H_process method: {H_process}")
+
+
+def H_to_activations(W_notes, H, feature_object, H_process = "thresholding",
+                      threshold = 0.01, smoothing_window = 5, H_normalization = None,
+                      ruptures_detector_model = 'normal', pelt_penalty = 0, pelt_min_size = 1,
+                      energy_filtering_criterion = None, energy_filter_stat = "mean_energy", percentile_detection = 90, energy_filter_threshold = None,
+                      time_tol = None, min_duration = None, max_duration = None,
+                      verbose = True):
+    """
+    Estimate the activations (onset, offset, pitch) of the notes in the transcription.
+
+    Frame-domain segment detection (thresholding, PELT or window change-point detection, via
+    H_process) and generic post-processing (energy filtering, gap merging, duration filtering) are
+    delegated to nmf_audio_benchmark.tasks.ecoacoustics.sound_event_detection. On top of that, this
+    function adds the transcription-specific steps: mapping each detected segment to its W-atom
+    pitch, refining onsets with the piano-hammer heuristic (find_onset), and merging activations
+    across atoms that share the same pitch.
 
     Parameters
     ----------
@@ -341,76 +408,89 @@ def H_to_activations(W_notes, H, feature_object, threshold, smoothing_window = 5
         The H matrix of the NMF decomposition of the spectrogram, corresponding to the activations of the notes.
     feature_object : object
         The object containing the feature parameters of the audio signal.
-    threshold : float
-        The fixed threshold value to detect the presence of a note in the activations.
+    H_process : {"thresholding", "pelt", "window"}, optional
+        The detector used to find the note segments in each row of H. The default is "thresholding".
+    threshold : float, optional
+        The threshold to detect the presence of a note in the activations (used by "thresholding" and,
+        as the ruptures ``epsilon``, by "window"). The default is 0.01.
     smoothing_window : integer, optional
-        The number of frames to average the activation value in order to detect the presence of a note, in the default way (non adaptative).
-        The default is 5.
-    H_normalization : boolean, optional
-        If True, the activations are normalized.
-        The default is True.
-    adaptative_threshold : boolean, optional
-        If True, the threshold is adaptative, i.e. the activation value should be above the threshold and the average activation value over several frames.
-        The default is False.
-    averaging_window_adaptative : integer, optional
-        The number of frames to average the activation value in order to detect the presence of a note, in the adaptative way.
-        This number counts for negative and positive frames, i.e. computing the average over 2*averaging_window_adaptative + 1 frames.
-        The default is 10.
+        The number of frames to average the activation value in order to detect the presence of a note
+        (used by "thresholding"), or the window width (used by "window"). The default is 5.
+    H_normalization : {None, "max", "row_max", "mean", "row_mean", "l2", "row_l2"}, optional
+        How H is normalized before detection. The default is None (no normalization).
+    ruptures_detector_model : str, optional
+        The ruptures cost model, used by "pelt" and "window". The default is 'normal'.
+    pelt_penalty : float, optional
+        The PELT penalty, used by "pelt". The default is 0.
+    pelt_min_size : integer, optional
+        The PELT minimal segment size, used by "pelt". The default is 1.
+    energy_filtering_criterion : {None, "percentile", "threshold"}, optional
+        If set, segments are additionally selected by their energy. The default is None.
+    energy_filter_stat : {"mean_energy", "cumulative_energy"}, optional
+        The statistic used for the energy filtering. The default is "mean_energy".
+    percentile_detection : float, optional
+        The percentile used when energy_filtering_criterion is "percentile". The default is 90.
+    energy_filter_threshold : float, optional
+        The threshold used when energy_filtering_criterion is "threshold". Defaults to ``threshold`` when None.
+    time_tol : float, optional
+        If set, segments closer than time_tol (in seconds) are merged. The default is None.
+    min_duration : float, optional
+        Minimal duration (in seconds) of a note, used together with max_duration. The default is None.
+    max_duration : float, optional
+        Maximal duration (in seconds) of a note, used together with min_duration. The default is None.
     verbose : boolean, optional
         verbose mode. The default is True.
     """
-    if H_normalization:
-        H_max = np.linalg.norm(H, 'fro')
-    else:
-        H_max = 1
+    segments_frames_and_note = _detect_note_segments_frames(
+        H, H_process=H_process, threshold=threshold, smoothing_window=smoothing_window, H_normalization=H_normalization,
+        ruptures_detector_model=ruptures_detector_model, pelt_penalty=pelt_penalty, pelt_min_size=pelt_min_size, verbose=verbose,
+    )
+
+    normalized_H = dm.normalize_H(H, H_normalization=H_normalization)
+
+    if energy_filter_threshold is None:
+        energy_filter_threshold = threshold
 
     note_tab = []
 
-    presence_of_a_note = False
-    current_pitch = 0
-    current_onset = 0
-    current_offset = 0
-
-    for note_index in range(H.shape[0]): # Looping over the notes
-        if presence_of_a_note: # Avoiding an uncontrolled situation (boolean to True before looking at this note, should never happen in theory)
-            presence_of_a_note = False
-
-        current_pitch = W_notes[note_index] # Storing the pitch of the actual note
-        if current_pitch is None: # The note is incorrect
-            # An error occured, the note is incorrect
+    for note_index, segments_frames in segments_frames_and_note.items():
+        pitch = W_notes[note_index] # Storing the pitch of the actual note
+        if pitch is None: # The note is incorrect
             if verbose:
                 print(f"The {note_index}-th note in the codebook is incorrect. Skipping it.")
             continue
 
-        for time_index in range(H.shape[1]): # Taking each time bin
-            # Detecting a note
-            if adaptative_threshold: # Using an adaptative threshold, i.e. considering that a note should be detected if it is larger than a threshold value + the activation average over several frames
-                note_detected = detect_a_note_with_adaptative_threshold(H=H, note_index=note_index, time_index=time_index, threshold=threshold, H_max=H_max, averaging_window_adaptative=averaging_window_adaptative)
-            else: # Using a fixed threshold
-                note_detected = detect_a_note(H=H, note_index=note_index, time_index=time_index, threshold=threshold, H_max=H_max, smoothing_window=smoothing_window)
+        if segments_frames:
+            ## A test to try to find the exact moment of the onset, which appears to be a bit tricky. This is an heuristic, see find_onset for more details.
+            segments_frames = [(find_onset(normalized_H[note_index], start, threshold), end) for start, end in segments_frames]
 
-            if note_detected: # A note is detected
-                if not presence_of_a_note: # The note was not detected before
-                    current_pitch = W_notes[note_index] # Storing the pitch of the actual note
+        # Post process filters the segments, according to different possibilites:
+        # - Energy filtering: if the energy of the segment is too low, it is removed. This is useful to remove segments that are not really notes, but just noise.
+        # - Gap merging: if two segments are too close, they are merged. This is useful to merge segments that are actually the same note, but that have been split by the detection algorithm
+        # - Duration filtering: if a segment is too short or too long, it is removed
+        # It also converts the segments from frames to seconds, using the feature_object parameters (sr and hop_length)
+        note_segments = sed.post_process_segments(
+            H_col=normalized_H[note_index],
+            segments_frames=segments_frames,
+            feature_object=feature_object,
+            energy_filter_criterion=energy_filtering_criterion,
+            energy_filter_percentile=percentile_detection,
+            energy_filter_threshold=energy_filter_threshold,
+            energy_filter_stat=energy_filter_stat,
+            time_tol=time_tol,
+            min_duration=min_duration,
+            max_duration=max_duration,
+            verbose=verbose,
+            index_number=note_index,
+        )
 
-                    ## A test to try to find the exact moment of the onset, which appears to be a bit tricky. This is an heuristic, see the function for more details
-                    onset_time_index = find_onset(H, note_index, time_index, threshold, H_max)
-                    # onset_time_index = time_index
+        if not note_segments:
+            continue
 
-                    current_onset = librosa.frames_to_time(onset_time_index, sr=feature_object.sr, hop_length=feature_object.hop_length, n_fft=feature_object.n_fft)
-                    presence_of_a_note = True # Note detected (for the future frames)
-
-                # Else, the note was already detected, hence we continue until the activation level is below the threshold
-
-            else: # Note level is too low
-                if presence_of_a_note: # If a note was detected before, it means that the note is over
-                    current_offset = librosa.frames_to_time(time_index, sr=feature_object.sr, hop_length=feature_object.hop_length, n_fft=feature_object.n_fft)
-                    if current_offset <= current_onset:
-                        raise err.ToDebugException("The offset of the note is before the onset. This should never happen.")
-                    
-                    note_tab.append([current_onset, current_offset, current_pitch]) # Format for the .txt
-
-                    presence_of_a_note = False # Reinitializing the detector of a note
+        for onset, offset in note_segments:
+            if offset <= onset:
+                raise err.ToDebugException("The offset of the note is before the onset. This should never happen.")
+            note_tab.append([onset, offset, pitch]) # Format for the .txt
 
     ## Notes should be merged, because a same note can be represented with several atoms in W
     note_tab = merge_overlapping_activations(note_tab)
@@ -423,32 +503,7 @@ def H_to_activations(W_notes, H, feature_object, threshold, smoothing_window = 5
 
     return note_tab
 
-def detect_a_note(H, note_index, time_index, threshold, H_max, smoothing_window):
-    """
-    Detect the presence of a note in the activations, in the default way.
-    """
-    # The activation value of the note at the current time
-    current_val = H[note_index, time_index]
-
-    # The average activation value of the note over the <smoothing_window> next frames
-    end_time = min(H.shape[1], time_index + smoothing_window)
-    average_value_smoothing_window = np.mean(H[note_index, time_index:end_time]) # Average the activation value on several consecutive frames to eliminate spurious peaks
-
-    normalized_threshold = threshold * H_max
-    # The activation should be above than the threshold and the averaged value for several consecutive frames to be considered detected.
-    return (is_above_threshold(value=current_val, threshold=normalized_threshold) and is_above_threshold(value=average_value_smoothing_window, threshold=normalized_threshold))
-
-def detect_a_note_with_adaptative_threshold(H, note_index, time_index, threshold, H_max, averaging_window_adaptative):
-    """
-    Adaptative threshold to detect the presence of a note in the activations.
-    The threshold is adaptative, i.e. the threshold value is the sum of a fixed value and the averaged value of the activation over several frames.
-    """
-    start_time = max(0, time_index-averaging_window_adaptative)
-    end_time = min(H.shape[1], time_index+averaging_window_adaptative)
-    adaptative_average_activation = np.mean(H[note_index, start_time:end_time]) # Possible to compute it for the whole matrix, maybe cheaper.
-    return is_above_threshold(value=H[note_index, time_index], threshold=threshold * H_max + adaptative_average_activation) # The activation should be above than the threshold + an averageed value for several consectuvie frames.
-
-def find_onset(H, note_index, time_index, threshold, H_max):
+def find_onset(H_row, time_index, threshold):
     """
     Find a good candidate as onset.
     This is an heuristic, may not be the best way to find the onset.
@@ -460,19 +515,13 @@ def find_onset(H, note_index, time_index, threshold, H_max):
     Ref:
     [2] Marmoret, A., Bertin, N., & Cohen, J. (2019). Multi-Channel Automatic Music Transcription Using Tensor Algebra. arXiv preprint arXiv:2107.11250.
     """
-    # Finding the actual onset time, starting from the 3 frames before.
+    # Finding the actual onset time, starting from the 3 frames before.
     start_idx = max(0, time_index-2)
-    end_idx = min(H.shape[1], time_index+1)
+    end_idx = min(H_row.shape[0], time_index+1)
     for possible_onset in range(start_idx, end_idx+1):
-        if is_above_threshold(value=H[note_index, possible_onset], threshold=0.1 * threshold * H_max): # This onset is above 0.1*threshold, to try to find the exact onset, because in general the peak of activations comes after the annotated onset (because it is a mechanical piano).
+        if H_row[possible_onset] > 0.1 * threshold: # This onset is above 0.1*threshold, to try to find the exact onset, because in general the peak of activations comes after the annotated onset (because it is a mechanical piano).
             return possible_onset
     return time_index
-
-def is_above_threshold(value, threshold):
-    """
-    Wrapper to test if a value is above a threshold.
-    """
-    return value > threshold
 
 def merge_overlapping_activations(activations):
     """
@@ -605,49 +654,4 @@ def accuracy(TP, FP, FN):
         return TP/(TP + FP + FN)
     except ZeroDivisionError:
         return 0
-
-
-# %% Utils
-def freq_to_midi(frequency):
-    """
-    Returns the frequency (Hz) in the MIDI scale
-
-    Parameters
-    ----------
-    frequency: float
-        Frequency in Hertz
-
-    Returns
-    -------
-    midi_f0: integer
-        Frequency in MIDI scale
-    """
-    return int(round(69+ 12 * math.log(frequency/440,2)))
-
-def midi_to_freq(midi_freq):
-    """
-    Returns the MIDI frequency in Hertz
-
-    Parameters
-    ----------
-    midi_freq: integer
-        Frequency in MIDI scale
-
-    Returns
-    -------
-    frequency: float
-        Frequency in Hertz
-    """
-    return 440 * 2**((midi_freq - 69)/12)
-
-def l2_normalise(an_array, eps=1e-10):
-    """
-    Normalise an array along the second axis using the L2 norm.
-    """
-    norm = np.linalg.norm(an_array, axis = 1)
-    an_array_T = np.transpose(an_array)
-    out = np.inf * np.ones_like(an_array_T)
-    np.divide(an_array_T, norm, out = out, where=norm!=0)
-    an_array_T = np.where(np.isinf(out), eps, out)
-    return np.transpose(an_array_T)
 
