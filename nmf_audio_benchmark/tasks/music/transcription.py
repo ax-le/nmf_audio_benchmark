@@ -29,11 +29,13 @@ import librosa
 from collections import defaultdict
 import mir_eval
 import tqdm
+import math
 
 import nmf_audio_benchmark.utils.errors as err
 import nmf_audio_benchmark.utils.data_manipulation as dm
 import nmf_audio_benchmark.tasks.generic.sound_event_detection as sed
 
+import base_audio.signal_to_spectrogram as signal_to_spectrogram
 
 # %% Scripts to compute the transcription
 def compute_transcription(dataset, nmf, transcription_algorithm, time_tolerance=0.1):
@@ -297,8 +299,49 @@ def W_column_to_note(W_col, feature_object, pitch_min = 27, pitch_max = 4500, sa
         else:
             return dm.freq_to_midi(found_pitch)
 
+    elif feature_object.feature == "mel":
+
+        feat_obj = signal_to_spectrogram.FeatureObject(feature_object.sr, "stft", hop_length=(feature_object.n_fft//4), n_fft=feature_object.n_fft)
+        W_col_matrix = np.zeros((len(W_col),1))
+        W_col_matrix[:,0] = W_col
+        Column = librosa.feature.inverse.mel_to_stft(W_col_matrix, sr=feat_obj.sr, n_fft=feat_obj.n_fft)
+        return W_column_to_note(Column[:,0], feat_obj)
+
+    elif feature_object.feature == "cqt" or feature_object.feature == "vqt":
+        found_pitch = thresholding_column(W_col, feature_object.feature, feature_object)
+        #found_pitch = autocorrelation_cqt(W_col, feature_object, salience_shift_autocorrelation)
+        if found_pitch < pitch_min: # A lower bound for the frequency range, must be calculated from the size of the window
+            raise ValueError('The pitch is anormally low')
+
+        elif found_pitch > pitch_max:
+            raise ValueError('The pitch is anormally high')
+
+        else:
+            return freq_to_midi(found_pitch)
+
+    elif feature_object.feature == "pcp":
+        return np.argmax(W_col)
+
     else:
         raise NotImplementedError("TODO") from None
+
+def thresholding_column(W_col, feat, feature_object, threshold=0.5):
+    """
+    Méthode très artificielle pour extraire le pitch d'une bande d'un spectrogramme. Trouve la première bin où l'énérgie dépasse un seuil donné
+    puis renvoie la fréquence associée à ce bin.
+    """
+    has_energy = W_col > threshold
+    bin_ind = np.argmax(has_energy)
+    sr = feature_object.sr
+    N = feature_object.n_fft
+    match feat:
+        case "cqt" | "vqt":
+            f_bin = feature_object.fmin * 2**((bin_ind)/feature_object.bins_per_octave)
+        case "stft":
+            f_bin = bin_ind * (sr/N)
+        case "mel":
+            assert False, "TODO : thresholding pitch estimate for mel spectrograms"
+    return f_bin
 
 def autocorrelate_signal(W_col, feature_object, salience_shift_autocorrelation = 0.3):
     """
@@ -585,6 +628,36 @@ def test_no_overlap(activations):
             current_end = pitch_activations[i][1]
             next_start = pitch_activations[i + 1][0]
             assert current_end <= next_start, f"Overlap detected between {pitch_activations[i]} and {pitch_activations[i + 1]} for pitch {pitch}"
+
+# %% Utils
+
+def freq_to_midi(frequency):
+    """
+    Returns the frequency (Hz) in the MIDI scale
+    Parameters
+    ----------
+    frequency: float
+        Frequency in Hertz
+    Returns
+    -------
+    midi_f0: integer
+        Frequency in MIDI scale
+    """
+    return int(round(69+ 12 * math.log(frequency/440,2)))
+
+def midi_to_freq(midi_freq):
+    """
+    Returns the MIDI frequency in Hertz
+    Parameters
+    ----------
+    midi_freq: integer
+        Frequency in MIDI scale
+    Returns
+    -------
+    frequency: float
+        Frequency in Hertz
+    """
+    return 440 * 2**((midi_freq - 69)/12)
 
 # %% Metrics
 def compute_scores(estimations, annotations, time_tolerance=0.05):
