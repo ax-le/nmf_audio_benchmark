@@ -33,6 +33,7 @@ setuptools.setup(
         'mirdata',
         'nn_fac>= 0.3.2',
         'numpy',
+        'ruptures',
         'scikit_learn',
         'tqdm',
     ],
