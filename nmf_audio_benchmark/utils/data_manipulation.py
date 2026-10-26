@@ -189,8 +189,11 @@ def normalize_H(H, H_normalization=None, eps=1e-10):
         case "row_mean":
             # Normalize H by rows, i.e. divide each row by its own mean value.
             normalized_H = H / np.maximum(np.mean(H, axis=1, keepdims=True), eps)
+        
+        case "l2":
+            normalized_H = H / np.linalg.norm(H, ord='fro')
 
-        case "l2" | "row_l2":
+        case "row_l2":
             # Normalize H by rows using the L2 norm.
             row_norms = np.linalg.norm(H, axis=1, keepdims=True)
             normalized_H = H / np.maximum(row_norms, eps)
