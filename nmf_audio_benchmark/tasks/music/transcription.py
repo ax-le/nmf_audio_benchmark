@@ -348,7 +348,9 @@ def autocorrelate_signal(W_col, feature_object, salience_shift_autocorrelation =
     Compute the autocorrelation of the waveform of the note, and estimate the fundamental frequency from the maximum of the autocorrelation.
     """
     # Compute the waveform from the inverse Fourier transform of the note spectrogram
-    wave_signal_W_col = np.fft.irfft(W_col)
+    # Zero-padding up to n_fft//2+1 bins: if the spectrogram was truncated (e.g. only the first frequency bins are kept),
+    # the waveform would otherwise be too short and the estimated f0 = sr/lag would be overestimated by n_fft/(2*(len(W_col)-1)).
+    wave_signal_W_col = np.fft.irfft(W_col, n=feature_object.n_fft)
 
     # Auto-correlation of the waveform
     autocorrelation_wave_signal = np.correlate(wave_signal_W_col, wave_signal_W_col, mode='full')
