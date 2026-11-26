@@ -223,7 +223,8 @@ class Transcription(BaseTask):
 
 
 # %% W to notes
-def W_to_notes(W, feature_object, pitch_min = 50, pitch_max = 5000, salience_shift_autocorrelation = 0.3, verbose = True):
+def W_to_notes(W, feature_object, pitch_min = 50, pitch_max = 5000, salience_shift_autocorrelation = 0.3, verbose = True,
+               pitch_method = "harmonic_sum", piano = True):
     """
     Estimate the MIDI value of each note in the codebook.
 
@@ -239,22 +240,30 @@ def W_to_notes(W, feature_object, pitch_min = 50, pitch_max = 5000, salience_shi
         The maximal pitch value. The default is 5000.
     salience_shift_autocorrelation : float, optional
         The threshold for the autocorrelation of the waveform to detect the fundamental frequency. 
-        Below this threshold, the pitch is considered as invalid.
+        Below this threshold, the pitch is considered as invalid. Only used by pitch_method="legacy" on STFT.
         The default is 0.3.
     verbose : boolean, optional
         verbose mode. The default is True.
+    pitch_method : {"harmonic_sum", "legacy"}, optional
+        "harmonic_sum" : harmonic summation (see harmonic_sum_pitch), for STFT and CQT/VQT.
+        "legacy" : the previous estimators, i.e. autocorrelation of the waveform for STFT and argmax for CQT/VQT.
+        The default is "harmonic_sum".
+    piano : boolean, optional
+        For pitch_method="harmonic_sum" : whether the partials follow the inharmonic model of the piano strings
+        (see harmonic_frequencies) or are exact multiples of f0. The default is True.
     """
     f0s = []
     for idx_col in range(0,W.shape[1]): # Fundamental frequency estimation of each atom of the codebook
         try:
-            f0s.append(W_column_to_note(W[:,idx_col], feature_object, pitch_min = pitch_min, pitch_max = pitch_max, salience_shift_autocorrelation = salience_shift_autocorrelation))
+            f0s.append(W_column_to_note(W[:,idx_col], feature_object, pitch_min = pitch_min, pitch_max = pitch_max, salience_shift_autocorrelation = salience_shift_autocorrelation,
+                                        pitch_method = pitch_method, piano = piano))
         except ValueError as err:
             f0s.append(None)
             if verbose:
                 print("Error in the " + str(idx_col) + "-th note-atom of the codebook: " + err.args[0])
     return f0s
 
-def W_column_to_note(W_col, feature_object, pitch_min = 27, pitch_max = 4500, salience_shift_autocorrelation = 0.3):
+def W_column_to_note(W_col, feature_object, pitch_min = 27, pitch_max = 4500, salience_shift_autocorrelation = 0.3, pitch_method = "harmonic_sum", piano = True):
     """
     Estimate the fundamental frequency of a note from the column of the codebook.
     27 and 4500 Hz correspond broadly to the range of the piano keyboard.
@@ -273,10 +282,26 @@ def W_column_to_note(W_col, feature_object, pitch_min = 27, pitch_max = 4500, sa
         The maximal pitch value. The default is 4500.
     salience_shift_autocorrelation : float, optional
         The threshold for the autocorrelation of the waveform to detect the fundamental frequency. 
-        Below this threshold, the pitch is considered as invalid.
+        Below this threshold, the pitch is considered as invalid. Only used by pitch_method="legacy" on STFT.
         The default is 0.3.
+    pitch_method : {"harmonic_sum", "legacy"}, optional
+        See W_to_notes. The default is "harmonic_sum".
+    piano : boolean, optional
+        See W_to_notes. The default is True.
     """
-    if feature_object.feature == "stft":
+    if pitch_method not in ["harmonic_sum", "legacy"]:
+        raise ValueError(f"Unknown pitch_method: {pitch_method}")
+
+    if feature_object.feature in ["stft", "cqt", "vqt"] and pitch_method == "harmonic_sum":
+        found_pitch = harmonic_sum_pitch(W_col, feature_object, piano=piano)
+        if found_pitch < pitch_min: # A lower bound for the frequency range
+            raise ValueError('The pitch is anormally low')
+        elif found_pitch > pitch_max:
+            raise ValueError('The pitch is anormally high')
+        else:
+            return freq_to_midi(found_pitch)
+
+    elif feature_object.feature == "stft":
 
         # Trying to find the maximum of autocorrelation of the waveform, which corresponds to the fundamental frequency in harmonic signals.
         found_pitch = autocorrelate_signal(W_col, feature_object, salience_shift_autocorrelation)
@@ -305,7 +330,8 @@ def W_column_to_note(W_col, feature_object, pitch_min = 27, pitch_max = 4500, sa
         W_col_matrix = np.zeros((len(W_col),1))
         W_col_matrix[:,0] = W_col
         Column = librosa.feature.inverse.mel_to_stft(W_col_matrix, sr=feat_obj.sr, n_fft=feat_obj.n_fft)
-        return W_column_to_note(Column[:,0], feat_obj)
+        return W_column_to_note(Column[:,0], feat_obj, pitch_min = pitch_min, pitch_max = pitch_max, salience_shift_autocorrelation = salience_shift_autocorrelation,
+                                pitch_method = pitch_method, piano = piano)
 
     elif feature_object.feature == "cqt" or feature_object.feature == "vqt":
         found_pitch = thresholding_column(W_col, feature_object.feature, feature_object)
@@ -325,13 +351,147 @@ def W_column_to_note(W_col, feature_object, pitch_min = 27, pitch_max = 4500, sa
     else:
         raise NotImplementedError("TODO") from None
 
-def thresholding_column(W_col, feat, feature_object, threshold=0.5):
+# Default parameters of the harmonic summation, per representation. Weighted sum (mean=False) : it is a bit less accurate
+# than the weighted mean on isolated notes, but better on NMF codebooks, whose atoms are often a single partial
+# (see harmonic_sum_pitch).
+HARMONIC_SUM_DEFAULTS = {"stft": {"n_harmonics": 24, "decay": 0.8, "mean": False},
+                         "cqt": {"n_harmonics": 24, "decay": 0.9, "mean": False},
+                         "vqt": {"n_harmonics": 24, "decay": 0.9, "mean": False}}
+
+def piano_inharmonicity(midi, bass_log=-8.0, bass_slope=-0.09, treble_log=-4.0, treble_slope=0.09):
     """
-    Méthode très artificielle pour extraire le pitch d'une bande d'un spectrogramme. Trouve la première bin où l'énérgie dépasse un seuil donné
+    Inharmonicity coefficient B of the piano strings as a function of the MIDI note, modelled as the sum of two
+    log-linear asymptotes (as in Rigaud et al., "A parametric model and estimation techniques for the inharmonicity
+    and tuning of the piano", JASA 2013) : B decreases in the bass (wound strings) and increases strongly in the treble.
+
+        B(m) = exp(bass_log + bass_slope * (m - 21)) + exp(treble_log + treble_slope * (m - 108))
+
+    The default values give B ~ 3.4e-4 for A0, ~ 2.5e-4 for C4 and ~ 1.8e-2 for C8.
+    """
+    midi = np.asarray(midi, dtype=float)
+    return np.exp(bass_log + bass_slope * (midi - 21)) + np.exp(treble_log + treble_slope * (midi - 108))
+
+def harmonic_frequencies(f0, n_harmonics, piano=True, midi=None):
+    """
+    Frequencies of the first n_harmonics partials of notes of fundamental frequencies f0.
+
+    Parameters
+    ----------
+    f0 : float or numpy array
+        Fundamental frequencies, in Hz.
+    n_harmonics : integer
+        Number of partials, including the fundamental.
+    piano : boolean, optional
+        If True, the partials follow the stiff string model of the piano, f_h = h * f0 * sqrt(1 + B * h^2), with B given
+        by piano_inharmonicity. If False, they are exact multiples of f0 (f_h = h * f0), which suits most harmonic
+        instruments. Other instruments can be added here. The default is True.
+    midi : float or numpy array, optional
+        MIDI notes of f0, used for the inharmonicity coefficient. Computed from f0 if None.
+
+    Returns
+    -------
+    numpy array of shape (len(f0), n_harmonics)
+    """
+    f0 = np.atleast_1d(np.asarray(f0, dtype=float))
+    h = np.arange(1, n_harmonics + 1)[None, :]
+    if not piano:
+        return f0[:, None] * h
+    if midi is None:
+        midi = 69 + 12 * np.log2(f0 / 440)
+    B = piano_inharmonicity(np.atleast_1d(midi))[:, None]
+    return f0[:, None] * h * np.sqrt(1 + B * h ** 2)
+
+def frequency_to_bin(frequencies, feature_object):
+    """
+    Fractional bin index of frequencies (Hz) in the frequency axis of the representation (STFT or CQT/VQT).
+    For a pooled CQT, feature_object.bins_per_octave must be the number of bins per octave after pooling.
+    """
+    frequencies = np.asarray(frequencies, dtype=float)
+    match feature_object.feature:
+        case "stft":
+            return frequencies * feature_object.n_fft / feature_object.sr
+        case "cqt" | "vqt":
+            return feature_object.bins_per_octave * np.log2(frequencies / feature_object.fmin)
+        case _:
+            raise NotImplementedError(f"No frequency axis defined for the feature {feature_object.feature}.")
+
+def harmonic_sum_pitch(W_col, feature_object, n_harmonics=None, decay=None, piano=True, midi_min=21, midi_max=108, mean=None):
+    """
+    Estimates the fundamental frequency of a column of the codebook (STFT or CQT/VQT) by harmonic summation.
+
+    For each candidate note between midi_min and midi_max, the salience is the weighted sum of the energy of the column
+    at the frequencies of its partials (harmonic_frequencies, read by linear interpolation between bins), with weights
+    decay**(h-1), over the partials falling inside the column. With mean=True, the sum is divided by the sum of these
+    weights, so that high candidates (with few partials in range) are not penalized. The estimated note is the candidate
+    with the highest salience.
+
+    Why not the argmax / the autocorrelation : on the isolated notes of MAPS (8 pianos), the fundamental is not the
+    strongest bin for every note below MIDI 36 (it is 30 to 40 dB below the strongest partial), nor for about half of
+    the notes between MIDI 36 and 59. Correct notes on these isolated notes (8 pianos) :
+        - CQT36 pooled : argmax 63%, weighted mean 94% (n_harmonics=24, decay=0.95), weighted sum 80% (24, 0.9) ;
+        - STFT (200 bins) : autocorrelation 61% (17% of the columns rejected), weighted mean 82% (16, 0.8), weighted sum 78% (24, 0.8).
+    In the STFT, the notes below MIDI 36 stay badly estimated (~25%) : with n_fft = 2048, their partials are not
+    resolved (the main lobe of the window is wider than their spacing).
+    On NMF codebooks (HALS, rank 88, 3 pieces of MAPS AkPnBcht), many atoms are a single partial : the mean then often
+    assigns them to a subharmonic, while the sum keeps them at their frequency. Mean F-measure of the transcription :
+        - CQT36 pooled : argmax 0.516, weighted mean 0.506, weighted sum 0.534 ;
+        - STFT : autocorrelation 0.516, weighted mean 0.452, weighted sum 0.524.
+    Hence the weighted sum is the default (HARMONIC_SUM_DEFAULTS).
+
+    Parameters
+    ----------
+    W_col : numpy array
+        One column of the W matrix.
+    feature_object : object
+        The object containing the feature parameters (feature, sr, n_fft, fmin, bins_per_octave).
+    n_harmonics, decay : integer and float, optional
+        Number of partials summed (including the fundamental) and geometric decay of their weights.
+        If None, the defaults of HARMONIC_SUM_DEFAULTS for the feature are used.
+    piano : boolean, optional
+        Partials of the piano (inharmonic) if True, exact harmonics otherwise. See harmonic_frequencies. The default is True.
+    midi_min, midi_max : integers, optional
+        Range of the candidate notes. The default is the piano keyboard (21 to 108).
+    mean : boolean, optional
+        If True, the salience is the weighted mean over the partials inside the column (normalized by their weights).
+        If False, it is the weighted sum : a column made of a single peak at f is then assigned to f rather than to a
+        subharmonic of f. If None, the default of HARMONIC_SUM_DEFAULTS for the feature is used.
+
+    Returns
+    -------
+    f0 : float
+        The estimated fundamental frequency, in Hz (equal-tempered frequency of the estimated note).
+    """
+    if not np.any(W_col > 0):
+        raise ValueError('The note-atom has no energy')
+    defaults = HARMONIC_SUM_DEFAULTS.get(feature_object.feature, {"n_harmonics": 8, "decay": 0.9})
+    n_harmonics = defaults["n_harmonics"] if n_harmonics is None else n_harmonics
+    decay = defaults["decay"] if decay is None else decay
+    mean = defaults.get("mean", True) if mean is None else mean
+
+    midis = np.arange(midi_min, midi_max + 1)
+    f0s = 440 * 2 ** ((midis - 69) / 12)
+    positions = frequency_to_bin(harmonic_frequencies(f0s, n_harmonics, piano=piano, midi=midis), feature_object)
+    n = len(W_col)
+    in_range = (positions >= 0) & (positions <= n - 1)
+    values = np.interp(positions, np.arange(n), W_col)
+    weights = decay ** np.arange(n_harmonics)[None, :]
+    salience = np.where(in_range, values * weights, 0).sum(axis=1)
+    if mean:
+        salience = salience / np.maximum(np.where(in_range, weights, 0).sum(axis=1), 1e-300)
+    salience[~in_range[:, 0]] = -np.inf # The fundamental must be inside the column
+    if np.all(np.isinf(salience)):
+        raise ValueError('No candidate note inside the frequency range of the representation')
+    return float(f0s[np.argmax(salience)])
+
+def thresholding_column(W_col, feat, feature_object):
+    """
+    Méthode très artificielle pour extraire le pitch d'une bande d'un spectrogramme. Trouve la bin de plus forte énergie
     puis renvoie la fréquence associée à ce bin.
+    Ne dépend pas de l'échelle de la colonne (contrairement à un seuil absolu), donc fonctionne quelle que soit la normalisation de W.
     """
-    has_energy = W_col > threshold
-    bin_ind = np.argmax(has_energy)
+    if not np.any(W_col > 0):
+        raise ValueError('The note-atom has no energy')
+    bin_ind = np.argmax(W_col)
     sr = feature_object.sr
     N = feature_object.n_fft
     match feat:
